@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentMode: 'flashcards', // 'flashcards', 'learn', 'create', 'empty'
         currentLearnCard: null,
         progressData: new Map(), // Stores progress keyed by 'term|definition'
-        localStorageKey: 'flashcardAppProgress'
+        localStorageKey: 'flashcardAppProgress',
+        toastTimeout: null // FIXED: Added to manage the toast timer
     };
 
     // --- DOM ELEMENTS ---
@@ -280,7 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.learnTerm.textContent = card.term;
         dom.learnOptions.innerHTML = ''; // Clear old options
+        
+        // FIXED: Reset feedback state completely
         dom.learnFeedback.classList.add('hidden');
+        dom.learnFeedback.classList.remove('correct', 'incorrect');
 
         options.forEach(option => {
             const button = document.createElement('button');
@@ -372,14 +376,18 @@ document.addEventListener('DOMContentLoaded', () => {
             app.currentLearnCard.nextReview = now + SRS_INTERVALS[app.currentLearnCard.score];
             
             dom.learnFeedback.textContent = "Correct!";
-            dom.learnFeedback.className = 'mt-6 p-4 rounded-lg text-center font-medium correct';
+            // FIXED: Use classList instead of className
+            dom.learnFeedback.classList.add('correct');
+            dom.learnFeedback.classList.remove('incorrect');
         } else {
             // Incorrect Answer
             app.currentLearnCard.score = 0;
             app.currentLearnCard.nextReview = now + INCORRECT_INTERVAL;
             
             dom.learnFeedback.textContent = "Incorrect. The correct answer is: " + correctAnswer;
-            dom.learnFeedback.className = 'mt-6 p-4 rounded-lg text-center font-medium incorrect';
+            // FIXED: Use classList instead of className
+            dom.learnFeedback.classList.add('incorrect');
+            dom.learnFeedback.classList.remove('correct');
         }
         
         app.currentLearnCard.lastReviewed = now;
@@ -514,10 +522,18 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} message - The message to display.
      */
     function showToast(message) {
+        // FIXED: Clear any existing timer
+        if (app.toastTimeout) {
+            clearTimeout(app.toastTimeout);
+        }
+
         dom.toastNotification.textContent = message;
         dom.toastNotification.classList.add('show');
-        setTimeout(() => {
+        
+        // FIXED: Store the new timer
+        app.toastTimeout = setTimeout(() => {
             dom.toastNotification.classList.remove('show');
+            app.toastTimeout = null; // Clear the timer ID
         }, 3000);
     }
 
@@ -525,3 +541,4 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 
 });
+
