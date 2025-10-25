@@ -19,7 +19,7 @@
 <body>
 
     <!-- MODIFIED: Added 'relative' for positioning the toggle button -->
-    <div id="app-container" class="max-w-3xl mx-auto p-4 md:p-8 min-h-screen relative">
+    <div id="app-container" class="max-w-3xl mx-auto p-4 md:p-8 min-h-screen relative flex flex-col">
         
         <!-- NEW: Theme Toggle Button -->
         <button id="theme-toggle-button" class="absolute top-6 right-6 md:top-8 md:right-10 z-50 p-2 rounded-full transition-all duration-300">
@@ -44,7 +44,8 @@
             </nav>
         </header>
 
-        <main id="main-content">
+        <!-- MODIFIED: Added flex-grow to push footer down -->
+        <main id="main-content" class="flex-grow">
 
             <!-- Empty Deck State -->
             <!-- MODIFIED: Removed color/bg/shadow classes, kept padding -->
@@ -133,6 +134,12 @@
             </div>
 
         </main>
+
+        <!-- NEW: Footer -->
+        <footer class="text-center p-6 mt-8 border-t">
+            <p class="mb-2">Created by ____________</p>
+            <button id="about-button" class="underline cursor-pointer">About</button>
+        </footer>
         
         <!-- Toast Notification -->
         <!-- MODIFIED: Removed ALL classes, will be handled by CSS -->
@@ -141,6 +148,21 @@
         </div>
 
     </div>
+
+    <!-- NEW: About Modal -->
+    <div id="about-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div id="about-modal-content" class="relative w-full max-w-md p-6 md:p-8 rounded-2xl">
+            <button id="about-modal-close" class="absolute top-4 right-5 text-3xl font-bold">&times;</button>
+            <h2 class="text-2xl font-bold mb-4">About This Site</h2>
+            <p>
+                This is placeholder text for the "About" section. You can add information
+                about your site, how it works, and any other details you want to share here.
+            </p>
+        </div>
+    </div>
+    <!-- End About Modal -->
+
 
     <script src="script.js"></script>
 </body>
