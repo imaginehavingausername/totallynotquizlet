@@ -236,16 +236,37 @@ body[data-mode="empty"] #empty-deck-view {
 .perspective-container {
     perspective: 1500px;
     height: 400px; /* Taller card */
+    overflow: hidden; /* NEW: Clips the card as it slides out */
 }
 .flashcard {
     transform-style: preserve-3d;
-    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    /* MODIFIED: New transition for sliding and flipping */
+    transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
     box-shadow: var(--shadow-lg);
     border-radius: var(--border-radius-card); /* More rounded */
 }
 .flashcard.is-flipped {
     transform: rotateY(180deg);
 }
+
+/* NEW: Classes for slide animation */
+.flashcard.slide-out-left {
+    transform: translateX(-75%) rotateY(0deg); /* Slide left and ensure front face */
+    opacity: 0;
+}
+.flashcard.slide-in-from-right {
+    transform: translateX(75%) rotateY(0deg); /* Start off-screen right */
+    opacity: 0;
+}
+.flashcard.slide-out-right {
+    transform: translateX(75%) rotateY(0deg); /* Slide right and ensure front face */
+    opacity: 0;
+}
+.flashcard.slide-in-from-left {
+    transform: translateX(-75%) rotateY(0deg); /* Start off-screen left */
+    opacity: 0;
+}
+
 .card-face {
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
@@ -398,4 +419,3 @@ body.light-mode #flashcard-nav button:hover {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
-
