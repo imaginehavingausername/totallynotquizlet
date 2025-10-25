@@ -410,10 +410,64 @@ body.light-mode #flashcard-nav button:hover {
     transform: translateY(0);
 }
 
+/* --- NEW: Footer Styles --- */
+footer {
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+#about-button {
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+#about-button:hover {
+    color: var(--color-primary);
+}
+
+
+/* --- NEW: About Modal Styles --- */
+#about-modal-overlay {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+#about-modal-overlay.visible {
+    visibility: visible;
+    opacity: 1;
+}
+#about-modal-overlay .modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+#about-modal-content {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    color: var(--color-text-primary);
+    transform: scale(0.95);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#about-modal-overlay.visible #about-modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+#about-modal-close {
+    color: var(--color-text-secondary);
+    transition: color 0.2s ease;
+    background: none;
+    border: none;
+    line-height: 1;
+}
+#about-modal-close:hover {
+    color: var(--color-text-primary);
+}
+
+
 /* --- Tailwind CSS Overrides/Helpers --- */
 /* FIXED: Removed the problematic .hidden rule. 
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
-
-
