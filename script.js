@@ -72,8 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
         loadDeckFromURL();
         addEventListeners();
         
+        // MODIFIED: Default to 'create' if no deck, 'flashcards' if a deck is loaded
         if (app.currentDeck.length === 0) {
-            setMode('empty');
+            setMode('create');
         } else {
             setMode('flashcards');
         }
@@ -158,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Loads a deck from the URL hash. If no hash, loads a default deck.
+     * Loads a deck from the URL hash.
      */
     function loadDeckFromURL() {
         let rawDeck = [];
@@ -171,11 +172,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!Array.isArray(rawDeck)) throw new Error("Data is not an array");
             } catch (error) {
                 console.error("Error parsing deck from hash:", error);
-                rawDeck = getDefaultDeck();
+                rawDeck = getDefaultDeck(); // Will be empty
                 window.location.hash = ''; // Clear invalid hash
             }
         } else {
-            rawDeck = getDefaultDeck();
+            rawDeck = getDefaultDeck(); // Will be empty
         }
 
         app.currentDeck = rawDeck.map((card, index) => {
@@ -199,13 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
      * Returns a default sample deck.
      */
     function getDefaultDeck() {
-        return [
-            { term: "Hola", definition: "Hello" },
-            { term: "Adiós", definition: "Goodbye" },
-            { term: "Por favor", definition: "Please" },
-            { term: "Gracias", definition: "Thank you" },
-            { term: "Lo siento", definition: "Sorry" }
-        ];
+        // MODIFIED: Return an empty array. No default deck.
+        return [];
     }
 
     /**
@@ -213,7 +209,11 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} mode - The mode to switch to.
      */
     function setMode(mode) {
-        if (app.currentDeck.length === 0 && mode !== 'create') {
+        // MODIFIED: Store the intended mode for the active button state
+        const originalMode = mode;
+
+        // MODIFIED: If deck is empty and user tries to go to 'flashcards' or 'learn', show 'empty' view.
+        if (app.currentDeck.length === 0 && (mode === 'flashcards' || mode === 'learn')) {
             mode = 'empty';
         } else if (app.currentDeck.length < 4 && mode === 'learn') {
             dom.learnModeQuiz.classList.add('hidden');
@@ -228,12 +228,13 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.body.dataset.mode = mode;
 
         dom.navButtons.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
+            // MODIFIED: Check against originalMode to set the correct active button
+            btn.classList.toggle('active', btn.dataset.mode === originalMode);
         });
 
         if (mode === 'flashcards') {
-            renderFlashcardContent(); // MODIFIED: Call content-only function
-            dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it starts on the front
+            renderFlashcardContent(); 
+            dom.flashcardContainer.classList.remove('is-flipped');
         }
     }
 
@@ -278,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.flashcardBack.textContent = card.definition;
         dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.length}`;
     }
+
 
     // MODIFIED: Re-written to fix animation bug.
     function showPrevCard() {
