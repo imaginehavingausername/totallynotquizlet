@@ -64,6 +64,12 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.3s ease, color 0.3s ease;
+    
+    /* NEW: Prevent text selection */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 #app-container {
@@ -245,6 +251,12 @@ body[data-mode="empty"] #empty-deck-view {
     box-shadow: var(--shadow-lg);
     border-radius: var(--border-radius-card); /* More rounded */
 }
+
+/* NEW: This class disables the flip animation temporarily */
+.flashcard.no-flip-animation {
+    transition: opacity 0.2s ease-in-out; /* Only transition opacity */
+}
+
 .flashcard.is-flipped {
     transform: rotateY(180deg);
 }
@@ -403,4 +415,5 @@ body.light-mode #flashcard-nav button:hover {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
+
 
