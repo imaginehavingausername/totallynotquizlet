@@ -49,6 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
         themeToggleButton: document.getElementById('theme-toggle-button'),
         themeIconSun: document.getElementById('theme-icon-sun'),
         themeIconMoon: document.getElementById('theme-icon-moon'),
+
+        // NEW: About Modal Elements
+        aboutButton: document.getElementById('about-button'),
+        aboutModalOverlay: document.getElementById('about-modal-overlay'),
+        aboutModalClose: document.getElementById('about-modal-close'),
+        aboutModalBackdrop: document.querySelector('#about-modal-overlay .modal-backdrop'),
     };
 
     // --- CONSTANTS ---
@@ -72,9 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadDeckFromURL();
         addEventListeners();
         
-        // MODIFIED: Default to 'create' if no deck, 'flashcards' if a deck is loaded
         if (app.currentDeck.length === 0) {
-            setMode('create');
+            setMode('empty');
         } else {
             setMode('flashcards');
         }
@@ -159,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Loads a deck from the URL hash.
+     * Loads a deck from the URL hash. If no hash, loads a default deck.
      */
     function loadDeckFromURL() {
         let rawDeck = [];
@@ -172,11 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!Array.isArray(rawDeck)) throw new Error("Data is not an array");
             } catch (error) {
                 console.error("Error parsing deck from hash:", error);
-                rawDeck = getDefaultDeck(); // Will be empty
+                rawDeck = getDefaultDeck();
                 window.location.hash = ''; // Clear invalid hash
             }
         } else {
-            rawDeck = getDefaultDeck(); // Will be empty
+            rawDeck = getDefaultDeck();
         }
 
         app.currentDeck = rawDeck.map((card, index) => {
@@ -200,8 +205,13 @@ document.addEventListener('DOMContentLoaded', () => {
      * Returns a default sample deck.
      */
     function getDefaultDeck() {
-        // MODIFIED: Return an empty array. No default deck.
-        return [];
+        return [
+            { term: "Hola", definition: "Hello" },
+            { term: "Adiós", definition: "Goodbye" },
+            { term: "Por favor", definition: "Please" },
+            { term: "Gracias", definition: "Thank you" },
+            { term: "Lo siento", definition: "Sorry" }
+        ];
     }
 
     /**
@@ -209,11 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} mode - The mode to switch to.
      */
     function setMode(mode) {
-        // MODIFIED: Store the intended mode for the active button state
-        const originalMode = mode;
-
-        // MODIFIED: If deck is empty and user tries to go to 'flashcards' or 'learn', show 'empty' view.
-        if (app.currentDeck.length === 0 && (mode === 'flashcards' || mode === 'learn')) {
+        if (app.currentDeck.length === 0 && mode !== 'create') {
             mode = 'empty';
         } else if (app.currentDeck.length < 4 && mode === 'learn') {
             dom.learnModeQuiz.classList.add('hidden');
@@ -228,13 +234,12 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.body.dataset.mode = mode;
 
         dom.navButtons.forEach(btn => {
-            // MODIFIED: Check against originalMode to set the correct active button
-            btn.classList.toggle('active', btn.dataset.mode === originalMode);
+            btn.classList.toggle('active', btn.dataset.mode === mode);
         });
 
         if (mode === 'flashcards') {
-            renderFlashcardContent(); 
-            dom.flashcardContainer.classList.remove('is-flipped');
+            renderFlashcardContent(); // MODIFIED: Call content-only function
+            dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it starts on the front
         }
     }
 
@@ -264,7 +269,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Share button
         dom.shareDeckButton.addEventListener('click', shareDeck);
+
+        // NEW: About Modal Listeners
+        dom.aboutButton.addEventListener('click', showAboutModal);
+        dom.aboutModalClose.addEventListener('click', hideAboutModal);
+        dom.aboutModalBackdrop.addEventListener('click', hideAboutModal);
     }
+
+    // --- NEW: About Modal Functions ---
+    function showAboutModal() {
+        dom.aboutModalOverlay.classList.add('visible');
+    }
+
+    function hideAboutModal() {
+        dom.aboutModalOverlay.classList.remove('visible');
+    }
+    // --- End About Modal Functions ---
+
 
     // --- FLASHCARD MODE ---
 
@@ -279,7 +300,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.flashcardBack.textContent = card.definition;
         dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.length}`;
     }
-
 
     // MODIFIED: Re-written to fix animation bug.
     function showPrevCard() {
@@ -583,4 +603,3 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 
 });
-
