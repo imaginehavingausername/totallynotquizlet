@@ -232,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (mode === 'flashcards') {
-            renderFlashcard(); // MODIFIED: Call renderFlashcard
+            renderFlashcardContent(); // MODIFIED: Call content-only function
+            dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it starts on the front
         }
     }
 
@@ -278,17 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.length}`;
     }
 
-    /**
-     * NEW: Renders flashcard content AND ensures it's not flipped.
-     */
-    function renderFlashcard() {
-        if (app.currentDeck.length === 0) return;
-        renderFlashcardContent();
-        dom.flashcardContainer.classList.remove('is-flipped');
-    }
-
-
-    // MODIFIED: Re-written to fade out, change, and fade in.
+    // MODIFIED: Re-written to fix animation bug.
     function showPrevCard() {
         if (app.currentDeck.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
@@ -298,21 +289,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. Change content while invisible
-            app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
-            renderFlashcard(); // This updates text AND removes .is-flipped
+            // 3. Add class to disable flip animation
+            dom.flashcardContainer.classList.add('no-flip-animation');
             
-            // 4. Fade in
+            // 4. Instantly remove 'is-flipped' (so it's on the front face)
+            dom.flashcardContainer.classList.remove('is-flipped');
+            
+            // 5. Change content
+            app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
+            renderFlashcardContent(); // Update text
+            
+            // 6. Force reflow to apply instant changes
+            void dom.flashcardContainer.offsetWidth; 
+
+            // 7. Remove class to re-enable flip animation for next click
+            dom.flashcardContainer.classList.remove('no-flip-animation');
+            
+            // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
 
-            // 5. Allow new animations
+            // 9. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
-            }, 200); // Wait for fade in to finish
-        }, 200); // Must match CSS opacity transition
+            }, 200); // Wait for fade in
+        }, 200); // Wait for fade out
     }
 
-    // MODIFIED: Re-written to fade out, change, and fade in.
+    // MODIFIED: Re-written to fix animation bug.
     function showNextCard() {
         if (app.currentDeck.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
@@ -322,18 +325,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. Change content while invisible
-            app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
-            renderFlashcard(); // This updates text AND removes .is-flipped
+            // 3. Add class to disable flip animation
+            dom.flashcardContainer.classList.add('no-flip-animation');
+            
+            // 4. Instantly remove 'is-flipped' (so it's on the front face)
+            dom.flashcardContainer.classList.remove('is-flipped');
 
-            // 4. Fade in
+            // 5. Change content
+            app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
+            renderFlashcardContent(); // Update text
+
+            // 6. Force reflow to apply instant changes
+            void dom.flashcardContainer.offsetWidth; 
+
+            // 7. Remove class to re-enable flip animation for next click
+            dom.flashcardContainer.classList.remove('no-flip-animation');
+            
+            // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
             
-            // 5. Allow new animations
+            // 9. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
-            }, 200); // Wait for fade in to finish
-        }, 200); // Must match CSS opacity transition
+            }, 200); // Wait for fade in
+        }, 200); // Wait for fade out
     }
 
     // --- LEARN MODE ---
