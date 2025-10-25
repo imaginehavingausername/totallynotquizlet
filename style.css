@@ -170,6 +170,27 @@ header nav {
 .main-action-button:active {
     transform: scale(0.98);
 }
+
+/* NEW: Secondary button style */
+.secondary-action-button {
+    background-color: var(--color-card-bg);
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: var(--border-radius-button);
+    border: 2px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+.secondary-action-button:hover {
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    border-color: var(--color-text-secondary);
+}
+.secondary-action-button:active {
+    transform: scale(0.98);
+}
+
 /* This targets the "Create a Deck" button on the empty page */
 #empty-deck-view .nav-button {
     background-color: var(--color-primary);
@@ -221,7 +242,8 @@ body[data-mode="empty"] #empty-deck-view {
 /* MODIFIED: Removed #create-view div from this rule */
 #empty-deck-view, 
 #learn-mode-disabled,
-#learn-question-box {
+#learn-question-box,
+#learn-complete-view { /* NEW */
     background-color: var(--color-bg-secondary);
     box-shadow: var(--shadow-md);
     border-radius: var(--border-radius-card);
@@ -542,7 +564,7 @@ body.light-mode #flashcard-nav button:hover {
 }
 
 /* --- Empty / Disabled States --- */
-#empty-deck-view p, #learn-mode-disabled p {
+#empty-deck-view p, #learn-mode-disabled p, #learn-complete-view p { /* NEW */
     color: var(--color-text-secondary);
     font-size: 1.1rem;
 }
@@ -676,3 +698,4 @@ body.light-mode .settings-toggle-button.active {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
+
