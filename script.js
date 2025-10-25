@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addEventListeners();
         
         if (app.currentDeck.length === 0) {
-            setMode('empty');
+            setMode('create'); // <-- CHANGED from 'empty'
         } else {
             setMode('flashcards');
         }
@@ -205,13 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Returns a default sample deck.
      */
     function getDefaultDeck() {
-        return [
-            { term: "Hola", definition: "Hello" },
-            { term: "Adiós", definition: "Goodbye" },
-            { term: "Por favor", definition: "Please" },
-            { term: "Gracias", definition: "Thank you" },
-            { term: "Lo siento", definition: "Sorry" }
-        ];
+        return []; // <-- CHANGED: Removed default Spanish deck
     }
 
     /**
@@ -603,3 +597,4 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 
 });
+
