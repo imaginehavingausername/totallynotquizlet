@@ -239,8 +239,7 @@ body[data-mode="empty"] #empty-deck-view {
 }
 .flashcard {
     transform-style: preserve-3d;
-    /* MODIFIED: Added opacity transition to fix the "answer flash" bug */
-    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-out;
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-lg);
     border-radius: var(--border-radius-card); /* More rounded */
 }
@@ -399,5 +398,4 @@ body.light-mode #flashcard-nav button:hover {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
-
 
