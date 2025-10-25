@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"> <!-- Theme class will be applied to <body> by JS -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,8 +23,8 @@
         
         <!-- NEW: Theme Toggle Button -->
         <button id="theme-toggle-button" class="absolute top-6 right-6 md:top-8 md:right-10 z-50 p-2 rounded-full transition-all duration-300">
-            <!-- Sun icon (shown in dark mode, toggles to light) -->
-            <svg id="theme-icon-sun" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M12 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <!-- MODIFIED: Replaced SVG with ☼ character and sized it -->
+            <span id="theme-icon-sun" class="text-3xl" style="line-height: 1;">☼</span>
             <!-- Moon icon (shown in light mode, toggles to dark) -->
             <svg id="theme-icon-moon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
         </button>
@@ -98,12 +98,12 @@
                 </div>
 
                 <div id="flashcard-nav" class="flex justify-between items-center mt-6">
-                    <!-- MODIFIED: Removed color/bg/shadow/border classes -->
-                    <button id="prev-card-button" class="py-2 px-5 rounded-lg font-medium">&larr; Prev</button>
+                    <!-- MODIFIED: Removed "Prev" text -->
+                    <button id="prev-card-button" class="py-2 px-5 rounded-lg font-medium">&larr;</button>
                     <!-- MODIFIED: Removed color class -->
                     <div id="card-counter" class="font-medium">1 / 10</div>
-                    <!-- MODIFIED: Removed color/bg/shadow/border classes -->
-                    <button id="next-card-button" class="py-2 px-5 rounded-lg font-medium">Next &rarr;</button>
+                    <!-- MODIFIED: Removed "Next" text -->
+                    <button id="next-card-button" class="py-2 px-5 rounded-lg font-medium">&rarr;</button>
                 </div>
             </div>
 
@@ -145,4 +145,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
