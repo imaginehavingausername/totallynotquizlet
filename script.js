@@ -2,27 +2,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- STATE ---
     const app = {
-        currentDeck: [],
+        // MODIFIED: Deck is now an object with title and cards array
+        currentDeck: {
+            title: '',
+            cards: []
+        },
         currentCardIndex: 0,
         currentMode: 'flashcards', // 'flashcards', 'learn', 'create', 'empty'
         currentLearnCard: null,
         progressData: new Map(), // Stores progress keyed by 'term|definition'
         localStorageKey: 'flashcardAppProgress',
-        themeKey: 'flashcardAppTheme', // NEW: Key for theme
+        themeKey: 'flashcardAppTheme',
         toastTimeout: null,
-        isAnimating: false // Prevents spam-clicking during animations
+        isAnimating: false,
+        draggedItem: null, // For drag and drop
+        createMode: 'manual' // 'manual' or 'paste'
     };
 
     // --- DOM ELEMENTS ---
     const dom = {
         body: document.body,
+        headerTitle: document.getElementById('header-title'), // NEW
         navButtons: document.querySelectorAll('.nav-button'),
         shareDeckButton: document.getElementById('share-deck-button'),
         
-        // Create View
+        // Create View (MODIFIED)
         createView: document.getElementById('create-view'),
-        deckInputArea: document.getElementById('deck-input-area'),
-        parseDeckButton: document.getElementById('parse-deck-button'),
+        deckTitleInput: document.getElementById('deck-title-input'), // NEW
+        toggleManualButton: document.getElementById('toggle-manual-button'), // NEW
+        togglePasteButton: document.getElementById('toggle-paste-button'), // NEW
+        manualInputSection: document.getElementById('manual-input-section'), // NEW
+        pasteInputSection: document.getElementById('paste-input-section'), // NEW
+        cardEditorList: document.getElementById('card-editor-list'), // NEW
+        addCardButton: document.getElementById('add-card-button'), // NEW
+        deckInputArea: document.getElementById('deck-input-area'), // Kept for paste
+        parseDeckButton: document.getElementById('parse-deck-button'), // Kept (now "Create Deck")
 
         // Flashcard View
         flashcardsView: document.getElementById('flashcards-view'),
@@ -78,9 +92,11 @@ document.addEventListener('DOMContentLoaded', () => {
         loadDeckFromURL();
         addEventListeners();
         
-        if (app.currentDeck.length === 0) {
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length === 0) {
             setMode('create'); // <-- CHANGED from 'empty'
         } else {
+            dom.headerTitle.textContent = app.currentDeck.title; // Set title
             setMode('flashcards');
         }
     }
@@ -149,7 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveProgressToLocalStorage() {
         try {
             const progressToSave = {};
-            for (const card of app.currentDeck) {
+            // MODIFIED: Loop over cards array
+            for (const card of app.currentDeck.cards) {
                 const key = `${card.term}|${card.definition}`;
                 progressToSave[key] = {
                     score: card.score,
@@ -167,24 +184,33 @@ document.addEventListener('DOMContentLoaded', () => {
      * Loads a deck from the URL hash. If no hash, loads a default deck.
      */
     function loadDeckFromURL() {
-        let rawDeck = [];
+        // MODIFIED: rawDeck is now an object
+        let rawDeck = getDefaultDeck();
         const hash = window.location.hash.substring(1);
 
         if (hash) {
             try {
                 const jsonString = atob(hash);
-                rawDeck = JSON.parse(jsonString);
-                if (!Array.isArray(rawDeck)) throw new Error("Data is not an array");
+                const parsedDeck = JSON.parse(jsonString);
+                // Check for new structure
+                if (parsedDeck && Array.isArray(parsedDeck.cards)) {
+                    rawDeck = parsedDeck;
+                } else if (Array.isArray(parsedDeck)) {
+                    // Handle old structure (array of cards)
+                    rawDeck = { title: 'Untitled Deck', cards: parsedDeck };
+                }
+                
+                if (!rawDeck.title) rawDeck.title = 'Untitled Deck';
+
             } catch (error) {
                 console.error("Error parsing deck from hash:", error);
                 rawDeck = getDefaultDeck();
                 window.location.hash = ''; // Clear invalid hash
             }
-        } else {
-            rawDeck = getDefaultDeck();
         }
 
-        app.currentDeck = rawDeck.map((card, index) => {
+        // MODIFIED: Map cards from rawDeck.cards
+        const mappedCards = rawDeck.cards.map((card, index) => {
             const key = `${card.term}|${card.definition}`;
             const storedProgress = app.progressData.get(key);
             const defaultState = {
@@ -198,7 +224,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return { ...defaultState, ...storedProgress };
         });
 
+        app.currentDeck = {
+            title: rawDeck.title,
+            cards: mappedCards
+        };
         app.currentCardIndex = 0;
+    }
+
+    /**
+     * Returns a default sample deck.
+     */
+    function getDefaultDeck() {
+        // MODIFIED: Return new deck object structure
+        return {
+            title: '',
+            cards: []
+        };
     }
 
     /**
@@ -213,9 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} mode - The mode to switch to.
      */
     function setMode(mode) {
-        if (app.currentDeck.length === 0 && mode !== 'create') {
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length === 0 && mode !== 'create') {
             mode = 'empty';
-        } else if (app.currentDeck.length < 4 && mode === 'learn') {
+        // MODIFIED: Check cards array length
+        } else if (app.currentDeck.cards.length < 4 && mode === 'learn') {
             dom.learnModeQuiz.classList.add('hidden');
             dom.learnModeDisabled.classList.remove('hidden');
         } else if (mode === 'learn') {
@@ -223,6 +266,17 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.learnModeDisabled.classList.add('hidden');
             startLearnMode();
         }
+
+        // NEW: Update header title
+        if (app.currentDeck.cards.length > 0 && mode !== 'create') {
+            dom.headerTitle.textContent = app.currentDeck.title;
+        } else if (mode === 'create') {
+            dom.headerTitle.textContent = "Create a New Deck";
+            renderCreateEditor(); // NEW: Render editor when switching to create
+        } else {
+            dom.headerTitle.textContent = "Totally Not Quizlet";
+        }
+
 
         app.currentMode = mode;
         dom.body.dataset.mode = mode;
@@ -258,8 +312,32 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.prevCardButton.addEventListener('click', showPrevCard);
         dom.nextCardButton.addEventListener('click', showNextCard);
 
-        // Create deck controls
+        // Create deck controls (MODIFIED)
         dom.parseDeckButton.addEventListener('click', parseAndLoadDeck);
+        dom.addCardButton.addEventListener('click', () => createNewCardRow());
+        dom.toggleManualButton.addEventListener('click', () => setCreateMode('manual'));
+        dom.togglePasteButton.addEventListener('click', () => setCreateMode('paste'));
+
+        // NEW: Event delegation for delete buttons and auto-resize
+        dom.cardEditorList.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-card-button')) {
+                const row = e.target.closest('.card-editor-row');
+                row.remove();
+                updateCardRowNumbers();
+            }
+        });
+
+        dom.cardEditorList.addEventListener('input', (e) => {
+            if (e.target.tagName === 'TEXTAREA') {
+                autoResizeTextarea(e.target);
+            }
+        });
+
+        // NEW: Drag and Drop Listeners
+        dom.cardEditorList.addEventListener('dragstart', handleDragStart);
+        dom.cardEditorList.addEventListener('dragover', handleDragOver);
+        dom.cardEditorList.addEventListener('drop', handleDrop);
+        dom.cardEditorList.addEventListener('dragend', handleDragEnd);
         
         // Share button
         dom.shareDeckButton.addEventListener('click', shareDeck);
@@ -287,17 +365,21 @@ document.addEventListener('DOMContentLoaded', () => {
      * Renders the current flashcard's text content.
      */
     function renderFlashcardContent() {
-        if (app.currentDeck.length === 0) return;
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length === 0) return;
 
-        const card = app.currentDeck[app.currentCardIndex];
+        // MODIFIED: Get card from cards array
+        const card = app.currentDeck.cards[app.currentCardIndex];
         dom.flashcardFront.textContent = card.term;
         dom.flashcardBack.textContent = card.definition;
-        dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.length}`;
+        // MODIFIED: Use cards array length
+        dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.cards.length}`;
     }
 
     // MODIFIED: Re-written to fix animation bug.
     function showPrevCard() {
-        if (app.currentDeck.length === 0 || app.isAnimating) return;
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
 
         // 1. Fade out
@@ -312,7 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.flashcardContainer.classList.remove('is-flipped');
             
             // 5. Change content
-            app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
+            // MODIFIED: Use cards array length
+            app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.cards.length) % app.currentDeck.cards.length;
             renderFlashcardContent(); // Update text
             
             // 6. Force reflow to apply instant changes
@@ -333,7 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // MODIFIED: Re-written to fix animation bug.
     function showNextCard() {
-        if (app.currentDeck.length === 0 || app.isAnimating) return;
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
 
         // 1. Fade out
@@ -348,7 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.flashcardContainer.classList.remove('is-flipped');
 
             // 5. Change content
-            app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
+            // MODIFIED: Use cards array length
+            app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.cards.length;
             renderFlashcardContent(); // Update text
 
             // 6. Force reflow to apply instant changes
@@ -370,7 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LEARN MODE ---
 
     function startLearnMode() {
-        if (app.currentDeck.length < 4) return;
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length < 4) return;
         dom.learnFeedback.classList.add('hidden');
         renderLearnQuestion();
     }
@@ -405,14 +491,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getNextLearnCard() {
         const now = Date.now();
-        const dueCards = app.currentDeck.filter(card => card.nextReview <= now);
+        // MODIFIED: Use cards array
+        const dueCards = app.currentDeck.cards.filter(card => card.nextReview <= now);
 
         if (dueCards.length > 0) {
             dueCards.sort((a, b) => a.score - b.score);
             return dueCards[0];
         }
 
-        const allCardsSorted = [...app.currentDeck].sort((a, b) => a.score - b.score);
+        // MODIFIED: Use cards array
+        const allCardsSorted = [...app.currentDeck.cards].sort((a, b) => a.score - b.score);
         return allCardsSorted[0];
     }
 
@@ -420,7 +508,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = new Set();
         options.add(correctCard.definition);
 
-        const distractorPool = app.currentDeck.filter(card => card.id !== correctCard.id);
+        // MODIFIED: Use cards array
+        const distractorPool = app.currentDeck.cards.filter(card => card.id !== correctCard.id);
         
         for (let i = distractorPool.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -482,40 +571,157 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CREATE DECK ---
 
-    function parseAndLoadDeck() {
-        const input = dom.deckInputArea.value.trim();
-        if (!input) {
-            alert("Input area is empty."); // Simple alert is fine for this action
-            return;
-        }
+    /**
+     * NEW: Renders the create editor, populating title and cards.
+     */
+    function renderCreateEditor() {
+        dom.deckTitleInput.value = app.currentDeck.title;
+        dom.cardEditorList.innerHTML = ''; // Clear list
 
-        const lines = input.split('\n');
-        const newDeck = [];
+        if (app.currentDeck.cards.length > 0) {
+            app.currentDeck.cards.forEach(card => {
+                createNewCardRow(card.term, card.definition);
+            });
+        } else {
+            // Start with 3 empty rows
+            createNewCardRow();
+            createNewCardRow();
+            createNewCardRow();
+        }
+        updateCardRowNumbers();
+        // Ensure textareas are sized correctly on load
+        dom.cardEditorList.querySelectorAll('textarea').forEach(autoResizeTextarea);
+    }
+
+    /**
+     * NEW: Creates a new card row in the manual editor.
+     */
+    function createNewCardRow(term = '', definition = '') {
+        const row = document.createElement('div');
+        row.className = 'card-editor-row';
+        row.setAttribute('draggable', 'true'); // Make it draggable
+
+        const rowNumber = dom.cardEditorList.children.length + 1;
+
+        row.innerHTML = `
+            <div class="drag-handle" title="Drag to reorder">
+                <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M7 2a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V3a1 1 0 00-1-1H7zM7 6a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V7a1 1 0 00-1-1H7zM7 10a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1v-1a1 1 0 00-1-1H7zM7 14a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1v-1a1 1 0 00-1-1H7zM11 2a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V3a1 1 0 00-1-1h-1zM11 6a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1V7a1 1 0 00-1-1h-1zM11 10a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1v-1a1 1 0 00-1-1h-1zM11 14a1 1 0 00-1 1v1a1 1 0 001 1h1a1 1 0 001-1v-1a1 1 0 00-1-1h-1z"></path></svg>
+            </div>
+            <span class="card-row-number">${rowNumber}</span>
+            <div class="card-input-wrapper">
+                <textarea class="term-input" rows="1" placeholder="Enter term">${term}</textarea>
+                <label class="create-label">TERM</label>
+            </div>
+            <div class="card-input-wrapper">
+                <textarea class="def-input" rows="1" placeholder="Enter definition">${definition}</textarea>
+                <label class="create-label">DEFINITION</label>
+            </div>
+            <button class="delete-card-button" title="Delete card">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        `;
+        dom.cardEditorList.appendChild(row);
+        
+        // Auto-resize the new textareas in case they have content
+        const textareas = row.querySelectorAll('textarea');
+        textareas.forEach(autoResizeTextarea);
+    }
+
+    /**
+     * NEW: Updates the numbers for all card rows.
+     */
+    function updateCardRowNumbers() {
+        const rows = dom.cardEditorList.querySelectorAll('.card-editor-row');
+        rows.forEach((row, index) => {
+            row.querySelector('.card-row-number').textContent = index + 1;
+        });
+    }
+
+    /**
+     * NEW: Auto-resizes a textarea to fit its content.
+     */
+    function autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto'; // Reset height
+        textarea.style.height = `${textarea.scrollHeight}px`; // Set to content height
+    }
+
+    /**
+     * NEW: Sets the create mode (manual or paste).
+     */
+    function setCreateMode(mode) {
+        app.createMode = mode;
+        if (mode === 'manual') {
+            dom.manualInputSection.classList.remove('hidden');
+            dom.pasteInputSection.classList.add('hidden');
+            dom.toggleManualButton.classList.add('active');
+            dom.togglePasteButton.classList.remove('active');
+        } else {
+            dom.manualInputSection.classList.add('hidden');
+            dom.pasteInputSection.classList.remove('hidden');
+            dom.toggleManualButton.classList.remove('active');
+            dom.togglePasteButton.classList.add('active');
+        }
+    }
+
+    /**
+     * MODIFIED: Parses deck from either manual or paste mode.
+     */
+    function parseAndLoadDeck() {
+        const title = dom.deckTitleInput.value.trim() || 'Untitled Deck';
+        let newCards = [];
         let errorCount = 0;
 
-        for (const line of lines) {
-            const parts = line.split('|');
-            if (parts.length === 2) {
-                const term = parts[0].trim();
-                const definition = parts[1].trim();
+        if (app.createMode === 'manual') {
+            const rows = dom.cardEditorList.querySelectorAll('.card-editor-row');
+            rows.forEach(row => {
+                const term = row.querySelector('.term-input').value.trim();
+                const definition = row.querySelector('.def-input').value.trim();
                 if (term && definition) {
-                    newDeck.push({ term, definition });
-                } else {
+                    newCards.push({ term, definition });
+                } else if (term || definition) {
+                    // Only count as error if one is filled but not the other
                     errorCount++;
                 }
-            } else if (line.trim() !== '') {
-                errorCount++;
+            });
+        } else {
+            // Paste mode logic
+            const input = dom.deckInputArea.value.trim();
+            if (input) {
+                const lines = input.split('\n');
+                for (const line of lines) {
+                    // MODIFIED: Use comma as separator
+                    const parts = line.split(',');
+                    if (parts.length >= 2) {
+                        const term = parts[0].trim();
+                        // Join all other parts as the definition
+                        const definition = parts.slice(1).join(',').trim(); 
+                        if (term && definition) {
+                            newCards.push({ term, definition });
+                        } else {
+                            errorCount++;
+                        }
+                    } else if (line.trim() !== '') {
+                        errorCount++;
+                    }
+                }
             }
         }
 
-        if (newDeck.length === 0) {
-            alert("Could not parse any valid cards. Please check the format.");
+        if (newCards.length === 0) {
+            // MODIFIED: Don't use alert
+            showToast("Could not find any valid cards. Please check your inputs.");
             return;
         }
 
         if (errorCount > 0) {
-            alert(`Successfully loaded ${newDeck.length} cards, but ${errorCount} lines were ignored due to formatting errors.`);
+            // MODIFIED: Don't use alert
+            showToast(`Loaded ${newCards.length} cards, but ${errorCount} lines/rows were ignored.`);
         }
+
+        const newDeck = {
+            title: title,
+            cards: newCards
+        };
 
         try {
             const jsonString = JSON.stringify(newDeck);
@@ -524,20 +730,26 @@ document.addEventListener('DOMContentLoaded', () => {
             location.reload(); 
         } catch (error) {
             console.error("Error creating deck hash:", error);
-            alert("An error occurred while trying to load the new deck.");
+            // MODIFIED: Don't use alert
+            showToast("An error occurred while trying to load the new deck.");
         }
     }
 
     // --- SHARE DECK ---
 
     function shareDeck() {
-        if (app.currentDeck.length === 0) {
+        // MODIFIED: Check cards array length
+        if (app.currentDeck.cards.length === 0) {
             showToast("Cannot share an empty deck!");
             return;
         }
 
         try {
-            const baseDeck = app.currentDeck.map(({ term, definition }) => ({ term, definition }));
+            // MODIFIED: Create base deck from app.currentDeck
+            const baseDeck = {
+                title: app.currentDeck.title,
+                cards: app.currentDeck.cards.map(({ term, definition }) => ({ term, definition }))
+            };
             const jsonString = JSON.stringify(baseDeck);
             const base64String = btoa(jsonString);
             const url = `${window.location.origin}${window.location.pathname}#${base64String}`;
@@ -595,6 +807,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- START THE APP ---
     init();
+
+    // --- NEW: Drag and Drop Handlers ---
+
+    function handleDragStart(e) {
+        if (!e.target.classList.contains('card-editor-row')) return;
+        app.draggedItem = e.target;
+        // Set data (optional, but good practice)
+        e.dataTransfer.setData('text/plain', null); 
+        // Add styling class after a short delay
+        setTimeout(() => {
+            if (app.draggedItem) {
+                app.draggedItem.classList.add('dragging');
+            }
+        }, 0);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault(); // Necessary to allow dropping
+        const container = dom.cardEditorList;
+        const afterElement = getDragAfterElement(container, e.clientY);
+        
+        if (afterElement == null) {
+            if (app.draggedItem) {
+                container.appendChild(app.draggedItem);
+            }
+        } else {
+            if (app.draggedItem) {
+                container.insertBefore(app.draggedItem, afterElement);
+            }
+        }
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        // Logic is handled in dragover, just update numbers
+        updateCardRowNumbers();
+    }
+
+    function handleDragEnd() {
+        if (app.draggedItem) {
+            app.draggedItem.classList.remove('dragging');
+        }
+        app.draggedItem = null;
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.card-editor-row:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
 
 });
 
