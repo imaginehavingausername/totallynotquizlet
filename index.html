@@ -58,7 +58,8 @@
             </div>
 
             <!-- Create Deck View -->
-            <div id="create-view" class="app-view hidden">
+            <!-- FIXED: Removed the 'hidden' class that was causing the bug -->
+            <div id="create-view" class="app-view">
                 <!-- MODIFIED: Removed color/bg/shadow classes, kept padding -->
                 <div class="p-6 md:p-8 rounded-lg">
                     <h2 class="text-2xl font-semibold mb-4">Create New Deck</h2>
@@ -79,7 +80,8 @@
             </div>
 
             <!-- Flashcard Mode View -->
-            <div id="flashcards-view" class="app-view hidden">
+            <!-- FIXED: Removed the 'hidden' class that was causing the bug -->
+            <div id="flashcards-view" class="app-view">
                 <!-- MODIFIED: Increased height -->
                 <div class="perspective-container h-96">
                     <!-- MODIFIED: Removed shadow/border classes, increased rounded-lg -->
@@ -106,7 +108,8 @@
             </div>
 
             <!-- Learn Mode View -->
-            <div id="learn-view" class="app-view hidden">
+            <!-- FIXED: Removed the 'hidden' class that was causing the bug -->
+            <div id="learn-view" class="app-view">
                 <!-- MODIFIED: Removed color/bg/shadow classes, kept padding -->
                 <div id="learn-mode-disabled" class="text-center p-8 md:p-12 rounded-lg hidden">
                     <h2 class="text-2xl font-semibold mb-4">Learn Mode Needs More Cards</h2>
@@ -142,3 +145,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
