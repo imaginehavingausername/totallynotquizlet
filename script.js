@@ -92,3 +92,5 @@ document.addEventListener('DOMContentLoaded', () => {
             app.currentLearnCard.nextReview = now + INCORRECT_INTERVAL;
             // MODIFIED: Show the correct answer in the feedback
 // ... existing code ... -->
+
+            
