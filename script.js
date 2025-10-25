@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorageKey: 'flashcardAppProgress',
         themeKey: 'flashcardAppTheme', // NEW: Key for theme
         toastTimeout: null,
-        isAnimating: false // NEW: Prevents spam-clicking during animations
+        isAnimating: false // Prevents spam-clicking during animations
     };
 
     // --- DOM ELEMENTS ---
@@ -232,8 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (mode === 'flashcards') {
-            renderFlashcardContent();
-            dom.flashcardContainer.classList.remove('is-flipped'); // Ensure first card is on term
+            renderFlashcard(); // MODIFIED: Call renderFlashcard
         }
     }
 
@@ -251,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Flashcard controls
         dom.flashcardContainer.addEventListener('click', () => {
-            if (!app.isAnimating) { // Don't flip while sliding
+            if (!app.isAnimating) { // Don't flip while fading
                 dom.flashcardContainer.classList.toggle('is-flipped');
             }
         });
@@ -269,7 +268,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Renders the current flashcard's text content.
-     * Animation and flipping are handled separately.
      */
     function renderFlashcardContent() {
         if (app.currentDeck.length === 0) return;
@@ -280,68 +278,62 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.length}`;
     }
 
-    // MODIFIED: Re-written to slide right/left instead of fade.
+    /**
+     * NEW: Renders flashcard content AND ensures it's not flipped.
+     */
+    function renderFlashcard() {
+        if (app.currentDeck.length === 0) return;
+        renderFlashcardContent();
+        dom.flashcardContainer.classList.remove('is-flipped');
+    }
+
+
+    // MODIFIED: Re-written to fade out, change, and fade in.
     function showPrevCard() {
         if (app.currentDeck.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
 
-        // 1. Add a class to slide the card out to the right
-        dom.flashcardContainer.classList.add('slide-out-right');
-        dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it animates to front face
+        // 1. Fade out
+        dom.flashcardContainer.style.opacity = 0;
 
-        // 2. Wait for slide-out animation to finish (400ms from CSS)
+        // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. Update content while off-screen
+            // 3. Change content while invisible
             app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
-            renderFlashcardContent(); // Updates text content
-
-            // 4. Prepare for slide-in (from the left)
-            dom.flashcardContainer.classList.remove('slide-out-right');
-            dom.flashcardContainer.classList.add('slide-in-from-left');
-
-            // 5. Force a browser reflow (magic hack to restart transition)
-            void dom.flashcardContainer.offsetWidth; 
-
-            // 6. Trigger the slide-in animation by removing the 'in' class
-            dom.flashcardContainer.classList.remove('slide-in-from-left');
+            renderFlashcard(); // This updates text AND removes .is-flipped
             
-            // 7. Allow new animations after slide-in finishes
+            // 4. Fade in
+            dom.flashcardContainer.style.opacity = 1;
+
+            // 5. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
-            }, 400); // Must match CSS transition duration
-        }, 400); // Must match CSS transition duration
+            }, 200); // Wait for fade in to finish
+        }, 200); // Must match CSS opacity transition
     }
 
-    // MODIFIED: Re-written to slide right/left instead of fade.
+    // MODIFIED: Re-written to fade out, change, and fade in.
     function showNextCard() {
         if (app.currentDeck.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
 
-        // 1. Add a class to slide the card out to the left
-        dom.flashcardContainer.classList.add('slide-out-left');
-        dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it animates to front face
+        // 1. Fade out
+        dom.flashcardContainer.style.opacity = 0;
 
-        // 2. Wait for slide-out animation to finish (400ms from CSS)
+        // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. Update content while off-screen
+            // 3. Change content while invisible
             app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
-            renderFlashcardContent(); // Updates text content
+            renderFlashcard(); // This updates text AND removes .is-flipped
 
-            // 4. Prepare for slide-in (from the right)
-            dom.flashcardContainer.classList.remove('slide-out-left');
-            dom.flashcardContainer.classList.add('slide-in-from-right');
-
-            // 5. Force a browser reflow (magic hack to restart transition)
-            void dom.flashcardContainer.offsetWidth; 
-
-            // 6. Trigger the slide-in animation by removing the 'in' class
-            dom.flashcardContainer.classList.remove('slide-in-from-right');
+            // 4. Fade in
+            dom.flashcardContainer.style.opacity = 1;
             
-            // 7. Allow new animations after slide-in finishes
+            // 5. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
-            }, 400); // Must match CSS transition duration
-        }, 400); // Must match CSS transition duration
+            }, 200); // Wait for fade in to finish
+        }, 200); // Must match CSS opacity transition
     }
 
     // --- LEARN MODE ---
@@ -574,3 +566,4 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 
 });
+
