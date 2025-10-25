@@ -165,6 +165,20 @@
                     <!-- MODIFIED: Removed color/padding classes -->
                     <div id="learn-feedback" class="mt-6 p-4 rounded-lg text-center font-medium hidden"></div>
                 </div>
+
+                <!-- NEW: Learn Complete View -->
+                <div id="learn-complete-view" class="text-center p-8 md:p-12 rounded-lg hidden">
+                    <h2 class="text-2xl font-semibold mb-4">You've mastered this round!</h2>
+                    <p class="mb-8">You answered all questions correctly.</p>
+                    <div class="flex flex-col md:flex-row gap-4 justify-center">
+                        <button id="learn-restart-button" class="main-action-button font-medium py-3 px-6 rounded-lg">
+                            Start Again
+                        </button>
+                        <button id="learn-switch-type-button" class="secondary-action-button font-medium py-3 px-6 rounded-lg">
+                            Switch to Type (Coming Soon)
+                        </button>
+                    </div>
+                </div>
             </div>
 
         </main>
@@ -241,3 +255,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
