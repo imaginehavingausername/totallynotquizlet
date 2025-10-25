@@ -2,11 +2,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- STATE ---
     const app = {
-        // MODIFIED: Deck is now an object with title and cards array
+        // MODIFIED: Deck is now an object with title, cards, and settings
         currentDeck: {
             title: '',
-            cards: []
+            cards: [],
+            settings: {
+                shuffle: false,
+                termFirst: true
+            }
         },
+        studyDeck: [], // A (potentially shuffled) copy of cards for studying
         currentCardIndex: 0,
         currentMode: 'flashcards', // 'flashcards', 'learn', 'create', 'empty'
         currentLearnCard: null,
@@ -69,6 +74,15 @@ document.addEventListener('DOMContentLoaded', () => {
         aboutModalOverlay: document.getElementById('about-modal-overlay'),
         aboutModalClose: document.getElementById('about-modal-close'),
         aboutModalBackdrop: document.querySelector('#about-modal-overlay .modal-backdrop'),
+
+        // NEW: Settings Modal Elements
+        settingsButton: document.getElementById('settings-button'),
+        settingsModalOverlay: document.getElementById('settings-modal-overlay'),
+        settingsModalClose: document.getElementById('settings-modal-close'),
+        settingsModalBackdrop: document.querySelector('#settings-modal-overlay .modal-backdrop'),
+        settingDeckTitle: document.getElementById('setting-deck-title'),
+        settingToggleShuffle: document.getElementById('setting-toggle-shuffle'),
+        settingToggleStartWith: document.getElementById('setting-toggle-start-with'),
     };
 
     // --- CONSTANTS ---
@@ -92,10 +106,14 @@ document.addEventListener('DOMContentLoaded', () => {
         loadDeckFromURL();
         addEventListeners();
         
-        // MODIFIED: Check cards array length
+        // MODIFIED: Check cards array length and show/hide buttons
         if (app.currentDeck.cards.length === 0) {
-            setMode('create'); // <-- CHANGED from 'empty'
+            dom.settingsButton.classList.add('hidden');
+            dom.shareDeckButton.classList.add('hidden');
+            setMode('create');
         } else {
+            dom.settingsButton.classList.remove('hidden');
+            dom.shareDeckButton.classList.remove('hidden');
             dom.headerTitle.textContent = app.currentDeck.title; // Set title
             setMode('flashcards');
         }
@@ -187,17 +205,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // MODIFIED: rawDeck is now an object
         let rawDeck = getDefaultDeck();
         const hash = window.location.hash.substring(1);
+        const defaultSettings = { shuffle: false, termFirst: true };
 
         if (hash) {
             try {
                 const jsonString = atob(hash);
                 const parsedDeck = JSON.parse(jsonString);
-                // Check for new structure
+                
+                // Check for new structure (with settings)
                 if (parsedDeck && Array.isArray(parsedDeck.cards)) {
                     rawDeck = parsedDeck;
+                    // Merge saved settings with defaults to ensure all keys exist
+                    rawDeck.settings = { ...defaultSettings, ...parsedDeck.settings };
                 } else if (Array.isArray(parsedDeck)) {
                     // Handle old structure (array of cards)
-                    rawDeck = { title: 'Untitled Deck', cards: parsedDeck };
+                    rawDeck = { title: 'Untitled Deck', cards: parsedDeck, settings: defaultSettings };
                 }
                 
                 if (!rawDeck.title) rawDeck.title = 'Untitled Deck';
@@ -226,27 +248,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         app.currentDeck = {
             title: rawDeck.title,
-            cards: mappedCards
+            cards: mappedCards,
+            settings: rawDeck.settings // Assign settings
         };
         app.currentCardIndex = 0;
     }
 
     /**
      * Returns a default sample deck.
+     * FIXED: Removed the duplicate function. This is the only one.
      */
     function getDefaultDeck() {
-        // MODIFIED: Return new deck object structure
+        // MODIFIED: Return new deck object structure with settings
         return {
             title: '',
-            cards: []
+            cards: [],
+            settings: {
+                shuffle: false,
+                termFirst: true
+            }
         };
-    }
-
-    /**
-     * Returns a default sample deck.
-     */
-    function getDefaultDeck() {
-        return []; // <-- CHANGED: Removed default Spanish deck
     }
 
     /**
@@ -254,6 +275,15 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} mode - The mode to switch to.
      */
     function setMode(mode) {
+        // MODIFIED: Show/hide buttons based on deck length
+        if (app.currentDeck.cards.length === 0) {
+            dom.settingsButton.classList.add('hidden');
+            dom.shareDeckButton.classList.add('hidden');
+        } else {
+            dom.settingsButton.classList.remove('hidden');
+            dom.shareDeckButton.classList.remove('hidden');
+        }
+
         // MODIFIED: Check cards array length
         if (app.currentDeck.cards.length === 0 && mode !== 'create') {
             mode = 'empty';
@@ -264,6 +294,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'learn') {
             dom.learnModeQuiz.classList.remove('hidden');
             dom.learnModeDisabled.classList.add('hidden');
+            
+            // NEW: Create study deck
+            app.studyDeck = [...app.currentDeck.cards];
+            if (app.currentDeck.settings.shuffle) {
+                shuffleArray(app.studyDeck);
+            }
+            app.currentCardIndex = 0;
             startLearnMode();
         }
 
@@ -286,6 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (mode === 'flashcards') {
+            // NEW: Create study deck
+            app.studyDeck = [...app.currentDeck.cards];
+            if (app.currentDeck.settings.shuffle) {
+                shuffleArray(app.studyDeck);
+            }
+            app.currentCardIndex = 0;
+
             renderFlashcardContent(); // MODIFIED: Call content-only function
             dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it starts on the front
         }
@@ -346,6 +390,14 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.aboutButton.addEventListener('click', showAboutModal);
         dom.aboutModalClose.addEventListener('click', hideAboutModal);
         dom.aboutModalBackdrop.addEventListener('click', hideAboutModal);
+
+        // NEW: Settings Modal Listeners
+        dom.settingsButton.addEventListener('click', showSettingsModal);
+        dom.settingsModalClose.addEventListener('click', hideSettingsModal);
+        dom.settingsModalBackdrop.addEventListener('click', hideSettingsModal);
+        dom.settingDeckTitle.addEventListener('input', handleTitleSettingChange);
+        dom.settingToggleShuffle.addEventListener('click', handleShuffleSettingChange);
+        dom.settingToggleStartWith.addEventListener('click', handleStartWithSettingChange);
     }
 
     // --- NEW: About Modal Functions ---
@@ -358,6 +410,78 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // --- End About Modal Functions ---
 
+    // --- NEW: Settings Modal Functions ---
+    function showSettingsModal() {
+        // Populate modal with current settings
+        dom.settingDeckTitle.value = app.currentDeck.title;
+        updateSettingsToggle(dom.settingToggleShuffle, app.currentDeck.settings.shuffle, "Shuffle");
+        updateSettingsToggle(dom.settingToggleStartWith, app.currentDeck.settings.termFirst, "Term", "Definition");
+        
+        dom.settingsModalOverlay.classList.add('visible');
+    }
+
+    function hideSettingsModal() {
+        dom.settingsModalOverlay.classList.remove('visible');
+        // If mode is flashcards or learn, reset the view to apply changes
+        if (app.currentMode === 'flashcards' || app.currentMode === 'learn') {
+            setMode(app.currentMode);
+        }
+    }
+
+    function handleTitleSettingChange() {
+        const newTitle = dom.settingDeckTitle.value;
+        app.currentDeck.title = newTitle;
+        dom.headerTitle.textContent = newTitle;
+        dom.deckTitleInput.value = newTitle; // Keep create view in sync
+        updateURLHash(); // Save change
+    }
+
+    function handleShuffleSettingChange() {
+        app.currentDeck.settings.shuffle = !app.currentDeck.settings.shuffle;
+        updateSettingsToggle(dom.settingToggleShuffle, app.currentDeck.settings.shuffle, "Shuffle");
+        updateURLHash();
+    }
+
+    function handleStartWithSettingChange() {
+        app.currentDeck.settings.termFirst = !app.currentDeck.settings.termFirst;
+        updateSettingsToggle(dom.settingToggleStartWith, app.currentDeck.settings.termFirst, "Term", "Definition");
+        updateURLHash();
+    }
+
+    /** Helper to update a toggle button's appearance */
+    function updateSettingsToggle(button, isActive, activeText, inactiveText = null) {
+        if (isActive) {
+            button.classList.add('active');
+            button.textContent = inactiveText ? activeText : `${activeText}: ON`;
+        } else {
+            button.classList.remove('active');
+            button.textContent = inactiveText ? inactiveText : `${activeText}: OFF`;
+        }
+    }
+
+    /**
+     * NEW: Saves the current deck (title, cards, settings) to the URL hash.
+     */
+    function updateURLHash() {
+        if (app.currentDeck.cards.length === 0) return;
+        try {
+            const baseDeck = {
+                title: app.currentDeck.title,
+                // Save the canonical card order from .cards, not the shuffled .studyDeck
+                cards: app.currentDeck.cards.map(({ term, definition }) => ({ term, definition })),
+                settings: app.currentDeck.settings
+            };
+            const jsonString = JSON.stringify(baseDeck);
+            const base64String = btoa(jsonString);
+            // Use replaceState to avoid cluttering browser history
+            const newUrl = `${window.location.pathname}${window.location.search}#${base64String}`;
+            history.replaceState(null, '', newUrl);
+
+        } catch (error) {
+            console.error("Error updating URL hash:", error);
+            showToast("Error saving settings.");
+        }
+    }
 
     // --- FLASHCARD MODE ---
 
@@ -365,21 +489,29 @@ document.addEventListener('DOMContentLoaded', () => {
      * Renders the current flashcard's text content.
      */
     function renderFlashcardContent() {
-        // MODIFIED: Check cards array length
-        if (app.currentDeck.cards.length === 0) return;
+        // MODIFIED: Use studyDeck
+        if (app.studyDeck.length === 0) return;
 
-        // MODIFIED: Get card from cards array
-        const card = app.currentDeck.cards[app.currentCardIndex];
-        dom.flashcardFront.textContent = card.term;
-        dom.flashcardBack.textContent = card.definition;
-        // MODIFIED: Use cards array length
-        dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.cards.length}`;
+        // MODIFIED: Get card from studyDeck
+        const card = app.studyDeck[app.currentCardIndex];
+        
+        // NEW: Respect 'termFirst' setting
+        if (app.currentDeck.settings.termFirst) {
+            dom.flashcardFront.textContent = card.term;
+            dom.flashcardBack.textContent = card.definition;
+        } else {
+            dom.flashcardFront.textContent = card.definition;
+            dom.flashcardBack.textContent = card.term;
+        }
+
+        // MODIFIED: Use studyDeck length
+        dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.studyDeck.length}`;
     }
 
     // MODIFIED: Re-written to fix animation bug.
     function showPrevCard() {
-        // MODIFIED: Check cards array length
-        if (app.currentDeck.cards.length === 0 || app.isAnimating) return;
+        // MODIFIED: Use studyDeck
+        if (app.studyDeck.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
 
         // 1. Fade out
@@ -394,8 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.flashcardContainer.classList.remove('is-flipped');
             
             // 5. Change content
-            // MODIFIED: Use cards array length
-            app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.cards.length) % app.currentDeck.cards.length;
+            // MODIFIED: Use studyDeck length
+            app.currentCardIndex = (app.currentCardIndex - 1 + app.studyDeck.length) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
             
             // 6. Force reflow to apply instant changes
@@ -416,8 +548,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // MODIFIED: Re-written to fix animation bug.
     function showNextCard() {
-        // MODIFIED: Check cards array length
-        if (app.currentDeck.cards.length === 0 || app.isAnimating) return;
+        // MODIFIED: Use studyDeck
+        if (app.studyDeck.length === 0 || app.isAnimating) return;
         app.isAnimating = true;
 
         // 1. Fade out
@@ -432,8 +564,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.flashcardContainer.classList.remove('is-flipped');
 
             // 5. Change content
-            // MODIFIED: Use cards array length
-            app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.cards.length;
+            // MODIFIED: Use studyDeck length
+            app.currentCardIndex = (app.currentCardIndex + 1) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
 
             // 6. Force reflow to apply instant changes
@@ -455,8 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LEARN MODE ---
 
     function startLearnMode() {
-        // MODIFIED: Check cards array length
-        if (app.currentDeck.cards.length < 4) return;
+        // MODIFIED: Use studyDeck
+        if (app.studyDeck.length < 4) return;
         dom.learnFeedback.classList.add('hidden');
         renderLearnQuestion();
     }
@@ -472,7 +604,9 @@ document.addEventListener('DOMContentLoaded', () => {
         app.currentLearnCard = card;
         const options = generateQuizOptions(card);
 
-        dom.learnTerm.textContent = card.term;
+        // NEW: Respect termFirst setting for the question
+        dom.learnTerm.textContent = app.currentDeck.settings.termFirst ? card.term : card.definition;
+        
         dom.learnOptions.innerHTML = ''; 
         
         dom.learnFeedback.classList.add('hidden');
@@ -491,44 +625,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getNextLearnCard() {
         const now = Date.now();
-        // MODIFIED: Use cards array
-        const dueCards = app.currentDeck.cards.filter(card => card.nextReview <= now);
+        // MODIFIED: Use studyDeck
+        // Note: This filters the *studyDeck*, which is a copy. Progress is saved
+        // to the original cards in app.currentDeck.cards, so this works.
+        const dueCards = app.studyDeck.filter(card => card.nextReview <= now);
 
         if (dueCards.length > 0) {
             dueCards.sort((a, b) => a.score - b.score);
             return dueCards[0];
         }
 
-        // MODIFIED: Use cards array
-        const allCardsSorted = [...app.currentDeck.cards].sort((a, b) => a.score - b.score);
+        // MODIFIED: Use studyDeck
+        const allCardsSorted = [...app.studyDeck].sort((a, b) => a.score - b.score);
         return allCardsSorted[0];
     }
 
     function generateQuizOptions(correctCard) {
         const options = new Set();
-        options.add(correctCard.definition);
+        // NEW: Generate options based on termFirst setting
+        const correctOption = app.currentDeck.settings.termFirst ? correctCard.definition : correctCard.term;
+        options.add(correctOption);
 
-        // MODIFIED: Use cards array
-        const distractorPool = app.currentDeck.cards.filter(card => card.id !== correctCard.id);
+        // MODIFIED: Use studyDeck
+        const distractorPool = app.studyDeck.filter(card => card.id !== correctCard.id);
         
-        for (let i = distractorPool.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
-        }
+        shuffleArray(distractorPool); // Shuffle pool
 
         for (const card of distractorPool) {
             if (options.size < 4) {
-                options.add(card.definition);
+                // NEW: Get the correct field for the option
+                const distractorOption = app.currentDeck.settings.termFirst ? card.definition : card.term;
+                options.add(distractorOption);
             } else {
                 break;
             }
         }
         
         const shuffledOptions = Array.from(options);
-        for (let i = shuffledOptions.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
-        }
+        shuffleArray(shuffledOptions);
 
         return shuffledOptions;
     }
@@ -536,7 +670,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleLearnAnswer(event) {
         const selectedButton = event.currentTarget;
         const selectedAnswer = selectedButton.dataset.answer;
-        const correctAnswer = app.currentLearnCard.definition;
+        // NEW: Check correct answer based on termFirst
+        const correctAnswer = app.currentDeck.settings.termFirst ? app.currentLearnCard.definition : app.currentLearnCard.term;
         const now = Date.now();
 
         dom.learnOptions.querySelectorAll('button').forEach(btn => {
@@ -557,11 +692,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             app.currentLearnCard.score = 0;
             app.currentLearnCard.nextReview = now + INCORRECT_INTERVAL;
+            // MODIFIED: Show the correct answer in the feedback
             dom.learnFeedback.textContent = "Incorrect. The correct answer is: " + correctAnswer;
             dom.learnFeedback.classList.add('incorrect');
             dom.learnFeedback.classList.remove('correct');
         }
         
+        // Note: app.currentLearnCard is an object from the studyDeck, but it's
+        // a reference to the *same object* in app.currentDeck.cards,
+        // so saving progress here updates the master list.
         app.currentLearnCard.lastReviewed = now;
         dom.learnFeedback.classList.remove('hidden');
 
@@ -718,9 +857,14 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Loaded ${newCards.length} cards, but ${errorCount} lines/rows were ignored.`);
         }
 
+        // NEW: Add default settings to the new deck
         const newDeck = {
             title: title,
-            cards: newCards
+            cards: newCards,
+            settings: {
+                shuffle: false,
+                termFirst: true
+            }
         };
 
         try {
@@ -745,10 +889,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // MODIFIED: Create base deck from app.currentDeck
+            // MODIFIED: Create base deck from app.currentDeck, including settings
             const baseDeck = {
                 title: app.currentDeck.title,
-                cards: app.currentDeck.cards.map(({ term, definition }) => ({ term, definition }))
+                cards: app.currentDeck.cards.map(({ term, definition }) => ({ term, definition })),
+                settings: app.currentDeck.settings
             };
             const jsonString = JSON.stringify(baseDeck);
             const base64String = btoa(jsonString);
@@ -804,6 +949,20 @@ document.addEventListener('DOMContentLoaded', () => {
             app.toastTimeout = null; 
         }, 3000);
     }
+
+    // --- NEW: UTILITY FUNCTIONS ---
+    
+    /**
+     * Shuffles an array in place. (Fisher-Yates shuffle)
+     * @param {Array} array The array to shuffle.
+     */
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
 
     // --- START THE APP ---
     init();
@@ -867,4 +1026,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
