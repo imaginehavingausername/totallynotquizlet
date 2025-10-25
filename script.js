@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLearnCard: null,
         progressData: new Map(), // Stores progress keyed by 'term|definition'
         localStorageKey: 'flashcardAppProgress',
-        toastTimeout: null // FIXED: Added to manage the toast timer
+        themeKey: 'flashcardAppTheme', // NEW: Key for theme
+        toastTimeout: null
     };
 
     // --- DOM ELEMENTS ---
@@ -42,6 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Other
         toastNotification: document.getElementById('toast-notification'),
         emptyDeckView: document.getElementById('empty-deck-view'),
+
+        // NEW: Theme Toggle Elements
+        themeToggleButton: document.getElementById('theme-toggle-button'),
+        themeIconSun: document.getElementById('theme-icon-sun'),
+        themeIconMoon: document.getElementById('theme-icon-moon'),
     };
 
     // --- CONSTANTS ---
@@ -58,9 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Initializes the application.
-     * Loads progress, loads deck from URL or default, and renders the initial view.
      */
     function init() {
+        loadTheme(); // NEW: Load theme first
         loadProgressFromLocalStorage();
         loadDeckFromURL();
         addEventListeners();
@@ -71,6 +77,48 @@ document.addEventListener('DOMContentLoaded', () => {
             setMode('flashcards');
         }
     }
+
+    // --- NEW: THEME LOGIC ---
+
+    /**
+     * Loads the saved theme from localStorage and applies it.
+     * Defaults to 'dark' as requested.
+     */
+    function loadTheme() {
+        const savedTheme = localStorage.getItem(app.themeKey) || 'dark'; // Default to dark
+        setTheme(savedTheme);
+    }
+
+    /**
+     * Toggles the theme between light and dark.
+     */
+    function toggleTheme() {
+        if (dom.body.classList.contains('light-mode')) {
+            setTheme('dark');
+        } else {
+            setTheme('light');
+        }
+    }
+
+    /**
+     * Applies a specific theme and saves it to localStorage.
+     * @param {string} theme - 'light' or 'dark'
+     */
+    function setTheme(theme) {
+        if (theme === 'light') {
+            dom.body.classList.add('light-mode');
+            dom.themeIconSun.classList.add('hidden');
+            dom.themeIconMoon.classList.remove('hidden');
+        } else {
+            dom.body.classList.remove('light-mode');
+            dom.themeIconSun.classList.remove('hidden');
+            dom.themeIconMoon.classList.add('hidden');
+        }
+        localStorage.setItem(app.themeKey, theme);
+    }
+
+    // --- END THEME LOGIC ---
+
 
     /**
      * Loads progress data from localStorage into the app.progressData Map.
@@ -90,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Saves the current deck's progress to localStorage.
-     * Progress is stored in a simple object keyed by 'term|definition'.
      */
     function saveProgressToLocalStorage() {
         try {
@@ -111,7 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Loads a deck from the URL hash. If no hash, loads a default deck.
-     * Merges loaded progress after deck is loaded.
      */
     function loadDeckFromURL() {
         let rawDeck = [];
@@ -131,11 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
             rawDeck = getDefaultDeck();
         }
 
-        // Process raw deck: add IDs, default progress, and merge stored progress
         app.currentDeck = rawDeck.map((card, index) => {
             const key = `${card.term}|${card.definition}`;
             const storedProgress = app.progressData.get(key);
-
             const defaultState = {
                 id: `${Date.now()}-${index}`,
                 term: card.term,
@@ -144,8 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastReviewed: 0,
                 nextReview: 0
             };
-
-            // Merge stored progress if found
             return { ...defaultState, ...storedProgress };
         });
 
@@ -167,17 +209,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Sets the application's current mode and updates the UI.
-     * @param {string} mode - The mode to switch to ('flashcards', 'learn', 'create', 'empty').
+     * @param {string} mode - The mode to switch to.
      */
     function setMode(mode) {
         if (app.currentDeck.length === 0 && mode !== 'create') {
             mode = 'empty';
         } else if (app.currentDeck.length < 4 && mode === 'learn') {
-            // Disable learn mode if not enough cards
             dom.learnModeQuiz.classList.add('hidden');
             dom.learnModeDisabled.classList.remove('hidden');
         } else if (mode === 'learn') {
-            // Enable learn mode
             dom.learnModeQuiz.classList.remove('hidden');
             dom.learnModeDisabled.classList.add('hidden');
             startLearnMode();
@@ -186,12 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
         app.currentMode = mode;
         dom.body.dataset.mode = mode;
 
-        // Update active nav button
         dom.navButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
 
-        // Update views based on mode
         if (mode === 'flashcards') {
             renderFlashcard();
         }
@@ -201,6 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * Attaches all primary event listeners.
      */
     function addEventListeners() {
+        // NEW: Theme toggle
+        dom.themeToggleButton.addEventListener('click', toggleTheme);
+
         // Mode navigation
         dom.navButtons.forEach(button => {
             button.addEventListener('click', () => setMode(button.dataset.mode));
@@ -235,18 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.flashcardContainer.classList.remove('is-flipped');
     }
 
-    /**
-     * Navigates to the previous card.
-     */
     function showPrevCard() {
         if (app.currentDeck.length === 0) return;
         app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
         renderFlashcard();
     }
 
-    /**
-     * Navigates to the next card.
-     */
     function showNextCard() {
         if (app.currentDeck.length === 0) return;
         app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
@@ -255,22 +290,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LEARN MODE ---
 
-    /**
-     * Resets and starts the learn mode.
-     */
     function startLearnMode() {
         if (app.currentDeck.length < 4) return;
         dom.learnFeedback.classList.add('hidden');
         renderLearnQuestion();
     }
 
-    /**
-     * Selects the next card for learning and renders the quiz.
-     */
     function renderLearnQuestion() {
         const card = getNextLearnCard();
         if (!card) {
-            // This should ideally not happen if deck has cards
             dom.learnTerm.textContent = "No cards available for learning.";
             dom.learnOptions.innerHTML = '';
             return;
@@ -280,15 +308,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = generateQuizOptions(card);
 
         dom.learnTerm.textContent = card.term;
-        dom.learnOptions.innerHTML = ''; // Clear old options
+        dom.learnOptions.innerHTML = ''; 
         
-        // FIXED: Reset feedback state completely
         dom.learnFeedback.classList.add('hidden');
         dom.learnFeedback.classList.remove('correct', 'incorrect');
 
         options.forEach(option => {
             const button = document.createElement('button');
-            button.className = 'learn-option p-4 bg-white rounded-lg border border-gray-200 text-left hover:border-blue-500 hover:bg-blue-50 transition-colors duration-150';
+            // MODIFIED: Added rounded-xl, kept layout classes
+            button.className = 'learn-option p-4 rounded-xl border text-left';
             button.textContent = option;
             button.dataset.answer = option;
             button.addEventListener('click', handleLearnAnswer);
@@ -296,11 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /**
-     * Selects the next card based on SRS logic.
-     * 1. Prioritizes due cards (nextReview <= now), sorted by score (lowest first).
-     * 2. If no cards are due, picks from all cards, sorted by score (lowest first).
-     */
     function getNextLearnCard() {
         const now = Date.now();
         const dueCards = app.currentDeck.filter(card => card.nextReview <= now);
@@ -310,22 +333,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return dueCards[0];
         }
 
-        // If no cards are due, just pick the least-learned card from the entire deck
         const allCardsSorted = [...app.currentDeck].sort((a, b) => a.score - b.score);
         return allCardsSorted[0];
     }
 
-    /**
-     * Generates 4 multiple-choice options (1 correct, 3 distractors).
-     * @param {object} correctCard - The card object for the correct answer.
-     */
     function generateQuizOptions(correctCard) {
         const options = new Set();
         options.add(correctCard.definition);
 
         const distractorPool = app.currentDeck.filter(card => card.id !== correctCard.id);
         
-        // Shuffle the distractor pool
         for (let i = distractorPool.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
@@ -339,7 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Convert Set to array and shuffle one more time
         const shuffledOptions = Array.from(options);
         for (let i = shuffledOptions.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -349,20 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return shuffledOptions;
     }
 
-    /**
-     * Handles the user's answer in learn mode.
-     * @param {Event} event - The click event from the
-     */
     function handleLearnAnswer(event) {
         const selectedButton = event.currentTarget;
         const selectedAnswer = selectedButton.dataset.answer;
         const correctAnswer = app.currentLearnCard.definition;
         const now = Date.now();
 
-        // Disable all buttons
         dom.learnOptions.querySelectorAll('button').forEach(btn => {
             btn.disabled = true;
-            // Show correct/incorrect styling
             if (btn.dataset.answer === correctAnswer) {
                 btn.classList.add('correct');
             } else if (btn === selectedButton) {
@@ -371,21 +381,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (selectedAnswer === correctAnswer) {
-            // Correct Answer
             app.currentLearnCard.score = Math.min(app.currentLearnCard.score + 1, 5);
             app.currentLearnCard.nextReview = now + SRS_INTERVALS[app.currentLearnCard.score];
-            
             dom.learnFeedback.textContent = "Correct!";
-            // FIXED: Use classList instead of className
             dom.learnFeedback.classList.add('correct');
             dom.learnFeedback.classList.remove('incorrect');
         } else {
-            // Incorrect Answer
             app.currentLearnCard.score = 0;
             app.currentLearnCard.nextReview = now + INCORRECT_INTERVAL;
-            
             dom.learnFeedback.textContent = "Incorrect. The correct answer is: " + correctAnswer;
-            // FIXED: Use classList instead of className
             dom.learnFeedback.classList.add('incorrect');
             dom.learnFeedback.classList.remove('correct');
         }
@@ -394,20 +398,15 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.learnFeedback.classList.remove('hidden');
 
         saveProgressToLocalStorage();
-
-        // Move to the next question after a delay
         setTimeout(renderLearnQuestion, 2000);
     }
 
     // --- CREATE DECK ---
 
-    /**
-     * Parses the textarea input, creates a new deck, and reloads the page with the new hash.
-     */
     function parseAndLoadDeck() {
         const input = dom.deckInputArea.value.trim();
         if (!input) {
-            alert("Input area is empty.");
+            alert("Input area is empty."); // Simple alert is fine for this action
             return;
         }
 
@@ -440,11 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Create a base64 hash and reload the page to trigger the full load/merge logic
             const jsonString = JSON.stringify(newDeck);
             const base64String = btoa(jsonString);
             window.location.hash = base64String;
-            location.reload(); // Easiest way to force re-initialization
+            location.reload(); 
         } catch (error) {
             console.error("Error creating deck hash:", error);
             alert("An error occurred while trying to load the new deck.");
@@ -453,9 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SHARE DECK ---
 
-    /**
-     * Generates a shareable URL and copies it to the clipboard.
-     */
     function shareDeck() {
         if (app.currentDeck.length === 0) {
             showToast("Cannot share an empty deck!");
@@ -463,13 +458,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Create a "clean" deck with only terms and definitions
             const baseDeck = app.currentDeck.map(({ term, definition }) => ({ term, definition }));
             const jsonString = JSON.stringify(baseDeck);
             const base64String = btoa(jsonString);
             const url = `${window.location.origin}${window.location.pathname}#${base64String}`;
 
-            // Copy to clipboard
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(url).then(() => {
                     showToast("Share link copied to clipboard!");
@@ -487,22 +480,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Fallback for copying text to clipboard (for older browsers or insecure contexts).
-     */
     function fallbackCopyTextToClipboard(text) {
         const textArea = document.createElement("textarea");
         textArea.value = text;
-        
-        // Avoid scrolling to bottom
         textArea.style.top = "0";
         textArea.style.left = "0";
         textArea.style.position = "fixed";
-
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-
         try {
             const successful = document.execCommand('copy');
             if (successful) {
@@ -513,27 +499,18 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             showToast("Could not copy link.");
         }
-
         document.body.removeChild(textArea);
     }
 
-    /**
-     * Displays a toast notification.
-     * @param {string} message - The message to display.
-     */
     function showToast(message) {
-        // FIXED: Clear any existing timer
         if (app.toastTimeout) {
             clearTimeout(app.toastTimeout);
         }
-
         dom.toastNotification.textContent = message;
         dom.toastNotification.classList.add('show');
-        
-        // FIXED: Store the new timer
         app.toastTimeout = setTimeout(() => {
             dom.toastNotification.classList.remove('show');
-            app.toastTimeout = null; // Clear the timer ID
+            app.toastTimeout = null; 
         }, 3000);
     }
 
