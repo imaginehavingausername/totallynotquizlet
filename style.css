@@ -1,395 +1,521 @@
-/* --- CSS Variables (Color Palette) --- */
+document.addEventListener('DOMContentLoaded', () => {
 
-/* DEFAULT (DARK MODE)
-  User requested a dark blue default background
-*/
-:root {
-    --color-primary: #4f6dff; /* Brighter blue for dark mode */
-    --color-primary-light: #2a3b7d;
-    --color-primary-dark: #3a5bf0;
-    --color-secondary: #ffcd1f; /* Quizlet Yellow */
-    
-    --color-bg: #131b33; /* Dark Blue Background */
-    --color-bg-secondary: #1a2342; /* Slightly lighter bg */
-    --color-card-bg: #232e54; /* Card Background */
-    --color-text-primary: #f0f3ff; /* Light text */
-    --color-text-secondary: #a0aec0; /* Muted light text */
-    --color-border: #3a497c;
-    
-    --color-correct: #38c172;
-    --color-correct-light: #1f4f31;
-    --color-incorrect: #e3342f;
-    --color-incorrect-light: #52201f;
+    // --- STATE ---
+    const app = {
+        currentDeck: [],
+        currentCardIndex: 0,
+        currentMode: 'flashcards', // 'flashcards', 'learn', 'create', 'empty'
+        currentLearnCard: null,
+        progressData: new Map(), // Stores progress keyed by 'term|definition'
+        localStorageKey: 'flashcardAppProgress',
+        themeKey: 'flashcardAppTheme', // NEW: Key for theme
+        toastTimeout: null
+    };
 
-    --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.2);
-    --shadow-lg: 0 10px 30px rgba(0,0,0,0.3);
+    // --- DOM ELEMENTS ---
+    const dom = {
+        body: document.body,
+        navButtons: document.querySelectorAll('.nav-button'),
+        shareDeckButton: document.getElementById('share-deck-button'),
+        
+        // Create View
+        createView: document.getElementById('create-view'),
+        deckInputArea: document.getElementById('deck-input-area'),
+        parseDeckButton: document.getElementById('parse-deck-button'),
 
-    --border-radius-card: 24px; /* More rounded */
-    --border-radius-button: 12px; /* More rounded */
-}
+        // Flashcard View
+        flashcardsView: document.getElementById('flashcards-view'),
+        flashcardContainer: document.getElementById('flashcard-container'),
+        flashcardFront: document.getElementById('flashcard-front').querySelector('p'),
+        flashcardBack: document.getElementById('flashcard-back').querySelector('p'),
+        prevCardButton: document.getElementById('prev-card-button'),
+        nextCardButton: document.getElementById('next-card-button'),
+        cardCounter: document.getElementById('card-counter'),
 
-/* LIGHT MODE
-  This class is toggled by JS
-*/
-body.light-mode {
-    --color-primary: #4257b2;
-    --color-primary-light: #f0f3ff;
-    --color-primary-dark: #3a4b99;
-    --color-secondary: #ffcd1f;
-    
-    --color-bg: #f6f7fb;
-    --color-bg-secondary: #ffffff;
-    --color-card-bg: #ffffff;
-    --color-text-primary: #303545;
-    --color-text-secondary: #586380;
-    --color-border: #e4e7eb;
-    
-    --color-correct: #28a745;
-    --color-correct-light: #e9f6eb;
-    --color-incorrect: #dc3545;
-    --color-incorrect-light: #fbebed;
+        // Learn View
+        learnView: document.getElementById('learn-view'),
+        learnModeDisabled: document.getElementById('learn-mode-disabled'),
+        learnModeQuiz: document.getElementById('learn-mode-quiz'),
+        learnTerm: document.getElementById('learn-term'),
+        learnOptions: document.getElementById('learn-options'),
+        learnFeedback: document.getElementById('learn-feedback'),
 
-    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 12px rgba(48,53,69,0.1);
-    --shadow-lg: 0 10px 30px rgba(48,53,69,0.15);
-}
+        // Other
+        toastNotification: document.getElementById('toast-notification'),
+        emptyDeckView: document.getElementById('empty-deck-view'),
 
-/* --- Base Styles --- */
-body {
-    background-color: var(--color-bg);
-    color: var(--color-text-primary);
-    font-family: 'Inter', sans-serif;
-    font-weight: 500; /* Bolder base font */
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
+        // NEW: Theme Toggle Elements
+        themeToggleButton: document.getElementById('theme-toggle-button'),
+        themeIconSun: document.getElementById('theme-icon-sun'),
+        themeIconMoon: document.getElementById('theme-icon-moon'),
+    };
 
-#app-container {
-    max-width: 768px; /* Slightly narrower than before */
-}
+    // --- CONSTANTS ---
+    const SRS_INTERVALS = {
+        1: 5 * 60 * 1000,         // 5 minutes
+        2: 30 * 60 * 1000,        // 30 minutes
+        3: 24 * 60 * 60 * 1000,   // 1 day
+        4: 3 * 24 * 60 * 60 * 1000, // 3 days
+        5: 7 * 24 * 60 * 60 * 1000  // 7 days
+    };
+    const INCORRECT_INTERVAL = 60 * 1000; // 1 minute
 
-/* --- Theme Toggle Button --- */
-#theme-toggle-button {
-    color: var(--color-text-secondary);
-}
-#theme-toggle-button:hover {
-    color: var(--color-secondary);
-    background-color: var(--color-card-bg);
-}
-/* JS toggles the 'hidden' class on the icons */
-body.light-mode #theme-icon-sun {
-    display: none;
-}
-body.light-mode #theme-icon-moon {
-    display: block;
-}
-body:not(.light-mode) #theme-icon-sun {
-    display: block;
-}
-body:not(.light-mode) #theme-icon-moon {
-    display: none;
-}
+    // --- CORE LOGIC ---
 
+    /**
+     * Initializes the application.
+     */
+    function init() {
+        loadTheme(); // NEW: Load theme first
+        loadProgressFromLocalStorage();
+        loadDeckFromURL();
+        addEventListeners();
+        
+        if (app.currentDeck.length === 0) {
+            setMode('empty');
+        } else {
+            setMode('flashcards');
+        }
+    }
 
-/* --- Header & Navigation --- */
-header h1 {
-    color: var(--color-text-primary);
-    font-weight: 900; /* Thicker font */
-    font-size: 2.5rem; /* Larger title */
-}
+    // --- NEW: THEME LOGIC ---
 
-header nav {
-    background: var(--color-bg-secondary);
-    box-shadow: var(--shadow-sm);
-    padding: 0.5rem;
-    border-radius: var(--border-radius-button);
-    border: 1px solid var(--color-border);
-}
+    /**
+     * Loads the saved theme from localStorage and applies it.
+     * Defaults to 'dark' as requested.
+     */
+    function loadTheme() {
+        const savedTheme = localStorage.getItem(app.themeKey) || 'dark'; // Default to dark
+        setTheme(savedTheme);
+    }
 
-.nav-button {
-    background: transparent;
-    color: var(--color-text-secondary);
-    font-weight: 700; /* Bolder font */
-    font-size: 0.95rem;
-    padding: 0.75rem 1rem;
-    border-radius: 8px; /* Slightly less rounded than outer nav */
-    border: 2px solid transparent;
-    transition: all 0.2s ease;
-}
+    /**
+     * Toggles the theme between light and dark.
+     */
+    function toggleTheme() {
+        if (dom.body.classList.contains('light-mode')) {
+            setTheme('dark');
+        } else {
+            setTheme('light');
+        }
+    }
 
-.nav-button:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-card-bg);
-}
+    /**
+     * Applies a specific theme and saves it to localStorage.
+     * @param {string} theme - 'light' or 'dark'
+     */
+    function setTheme(theme) {
+        if (theme === 'light') {
+            dom.body.classList.add('light-mode');
+            dom.themeIconSun.classList.add('hidden');
+            dom.themeIconMoon.classList.remove('hidden');
+        } else {
+            dom.body.classList.remove('light-mode');
+            dom.themeIconSun.classList.remove('hidden');
+            dom.themeIconMoon.classList.add('hidden');
+        }
+        localStorage.setItem(app.themeKey, theme);
+    }
 
-.nav-button.active {
-    color: var(--color-primary);
-    background-color: var(--color-primary-light);
-    border-color: var(--color-primary);
-}
-
-/* Big "Create Deck" / "Load Deck" buttons */
-.main-action-button {
-    background-color: var(--color-primary);
-    color: white;
-    font-size: 1rem;
-    font-weight: 700;
-    border-radius: var(--border-radius-button);
-    box-shadow: var(--shadow-sm);
-    transition: background-color 0.2s ease, transform 0.1s ease;
-}
-.main-action-button:hover {
-    background-color: var(--color-primary-dark);
-}
-.main-action-button:active {
-    transform: scale(0.98);
-}
-/* This targets the "Create a Deck" button on the empty page */
-#empty-deck-view .nav-button {
-    background-color: var(--color-primary);
-    color: white;
-    border-radius: var(--border-radius-button);
-}
-#empty-deck-view .nav-button:hover {
-    background-color: var(--color-primary-dark);
-}
+    // --- END THEME LOGIC ---
 
 
-/* Special button styling */
-#share-deck-button {
-    background-color: var(--color-primary-light);
-    color: var(--color-primary);
-    font-weight: 700;
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
-    margin-left: 0.5rem;
-    border-bottom: none;
-    transition: background-color 0.2s ease;
-}
-#share-deck-button:hover {
-    background-color: var(--color-primary);
-    color: var(--color-card-bg);
-}
-body.light-mode #share-deck-button:hover {
-    color: white;
-}
+    /**
+     * Loads progress data from localStorage into the app.progressData Map.
+     */
+    function loadProgressFromLocalStorage() {
+        try {
+            const storedProgress = localStorage.getItem(app.localStorageKey);
+            if (storedProgress) {
+                const parsed = JSON.parse(storedProgress);
+                app.progressData = new Map(Object.entries(parsed));
+            }
+        } catch (error) {
+            console.error("Error loading progress from localStorage:", error);
+            app.progressData = new Map();
+        }
+    }
 
+    /**
+     * Saves the current deck's progress to localStorage.
+     */
+    function saveProgressToLocalStorage() {
+        try {
+            const progressToSave = {};
+            for (const card of app.currentDeck) {
+                const key = `${card.term}|${card.definition}`;
+                progressToSave[key] = {
+                    score: card.score,
+                    lastReviewed: card.lastReviewed,
+                    nextReview: card.nextReview
+                };
+            }
+            localStorage.setItem(app.localStorageKey, JSON.stringify(progressToSave));
+        } catch (error) {
+            console.error("Error saving progress to localStorage:", error);
+        }
+    }
 
-/* --- View Switching --- */
-.app-view {
-    display: none;
-}
-body[data-mode="create"] #create-view,
-body[data-mode="flashcards"] #flashcards-view,
-body[data-mode="learn"] #learn-view,
-body[data-mode="empty"] #empty-deck-view {
-    display: block;
-    animation: fadeIn 0.3s ease;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+    /**
+     * Loads a deck from the URL hash. If no hash, loads a default deck.
+     */
+    function loadDeckFromURL() {
+        let rawDeck = [];
+        const hash = window.location.hash.substring(1);
 
-/* --- Container boxes --- */
-#create-view div, 
-#empty-deck-view, 
-#learn-mode-disabled,
-#learn-question-box {
-    background-color: var(--color-bg-secondary);
-    box-shadow: var(--shadow-md);
-    border-radius: var(--border-radius-card);
-    border: 1px solid var(--color-border);
-}
+        if (hash) {
+            try {
+                const jsonString = atob(hash);
+                rawDeck = JSON.parse(jsonString);
+                if (!Array.isArray(rawDeck)) throw new Error("Data is not an array");
+            } catch (error) {
+                console.error("Error parsing deck from hash:", error);
+                rawDeck = getDefaultDeck();
+                window.location.hash = ''; // Clear invalid hash
+            }
+        } else {
+            rawDeck = getDefaultDeck();
+        }
 
-/* --- Create View --- */
-#create-example-guide {
-    background-color: var(--color-bg);
-    border: 1px dashed var(--color-border);
-    color: var(--color-text-secondary);
-    border-radius: var(--border-radius-button);
-}
-#deck-input-area {
-    font-family: monospace;
-    font-size: 0.95rem;
-    background-color: var(--color-bg);
-    border: 2px solid var(--color-border);
-    border-radius: var(--border-radius-button);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.04);
-    color: var(--color-text-primary);
-}
-#deck-input-area:focus {
-    border-color: var(--color-primary);
-    background-color: var(--color-bg);
-}
-#parse-deck-button {
-    border-radius: var(--border-radius-button);
-}
+        app.currentDeck = rawDeck.map((card, index) => {
+            const key = `${card.term}|${card.definition}`;
+            const storedProgress = app.progressData.get(key);
+            const defaultState = {
+                id: `${Date.now()}-${index}`,
+                term: card.term,
+                definition: card.definition,
+                score: 0,
+                lastReviewed: 0,
+                nextReview: 0
+            };
+            return { ...defaultState, ...storedProgress };
+        });
 
-/* --- Flashcard Mode --- */
-.perspective-container {
-    perspective: 1500px;
-    height: 400px; /* Taller card */
-}
-.flashcard {
-    transform-style: preserve-3d;
-    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--shadow-lg);
-    border-radius: var(--border-radius-card); /* More rounded */
-}
-.flashcard.is-flipped {
-    transform: rotateY(180deg);
-}
-.card-face {
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    background-color: var(--color-card-bg);
-    border-radius: var(--border-radius-card); /* More rounded */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2.5rem;
-    border: 1px solid var(--color-border);
-    overflow-wrap: break-word;
-    word-break: break-word;
-    text-align: center;
-}
-#flashcard-front p {
-    font-size: 2.5rem;
-    font-weight: 800; /* Bolder */
-}
-#flashcard-back p {
-    font-size: 1.75rem;
-    font-weight: 600; /* Bolder */
-    color: var(--color-text-secondary);
-}
-.card-back {
-    transform: rotateY(180deg);
-}
+        app.currentCardIndex = 0;
+    }
 
-/* Flashcard Navigation */
-#flashcard-nav {
-    margin-top: 2rem;
-    align-items: center;
-}
-#flashcard-nav button {
-    background-color: var(--color-card-bg);
-    color: var(--color-primary);
-    font-weight: 700;
-    font-size: 1.25rem;
-    border-radius: 50%; /* Circle buttons */
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-sm);
-    width: 56px; /* Larger */
-    height: 56px; /* Larger */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-#flashcard-nav button:hover {
-    background-color: var(--color-primary-light);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-    border-color: var(--color-primary);
-}
-body.light-mode #flashcard-nav button:hover {
-    border-color: transparent;
-}
-#card-counter {
-    font-size: 1.1rem;
-    font-weight: 700; /* Bolder */
-    color: var(--color-text-secondary);
-}
+    /**
+     * Returns a default sample deck.
+     */
+    function getDefaultDeck() {
+        return [
+            { term: "Hola", definition: "Hello" },
+            { term: "Adiós", definition: "Goodbye" },
+            { term: "Por favor", definition: "Please" },
+            { term: "Gracias", definition: "Thank you" },
+            { term: "Lo siento", definition: "Sorry" }
+        ];
+    }
 
-/* --- Learn Mode --- */
-#learn-term {
-    font-size: 2rem;
-    font-weight: 700; /* Bolder */
-}
-#learn-question-box {
-    border-radius: var(--border-radius-card);
-}
+    /**
+     * Sets the application's current mode and updates the UI.
+     * @param {string} mode - The mode to switch to.
+     */
+    function setMode(mode) {
+        if (app.currentDeck.length === 0 && mode !== 'create') {
+            mode = 'empty';
+        } else if (app.currentDeck.length < 4 && mode === 'learn') {
+            dom.learnModeQuiz.classList.add('hidden');
+            dom.learnModeDisabled.classList.remove('hidden');
+        } else if (mode === 'learn') {
+            dom.learnModeQuiz.classList.remove('hidden');
+            dom.learnModeDisabled.classList.add('hidden');
+            startLearnMode();
+        }
 
-.learn-option {
-    background-color: var(--color-card-bg);
-    border: 2px solid var(--color-border);
-    border-radius: var(--border-radius-button); /* More rounded */
-    padding: 1.25rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 600; /* Bolder */
-    text-align: left;
-    color: var(--color-text-primary);
-    box-shadow: var(--shadow-sm);
-    transition: all 0.2s ease;
-}
-.learn-option:not(:disabled):hover {
-    border-color: var(--color-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    background-color: var(--color-bg-secondary);
-}
+        app.currentMode = mode;
+        dom.body.dataset.mode = mode;
 
-.learn-option.correct {
-    background-color: var(--color-correct-light);
-    border-color: var(--color-correct);
-    color: var(--color-correct);
-    font-weight: 700;
-}
-.learn-option.incorrect {
-    background-color: var(--color-incorrect-light);
-    border-color: var(--color-incorrect);
-    color: var(--color-incorrect);
-    font-weight: 700;
-}
-.learn-option:disabled {
-    opacity: 1; /* Keep full opacity to show results */
-    cursor: not-allowed;
-}
+        dom.navButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
 
-#learn-feedback {
-    font-size: 1.1rem;
-    font-weight: 700; /* Bolder */
-    border-radius: var(--border-radius-button);
-    padding: 1rem;
-}
-#learn-feedback.correct {
-    background-color: var(--color-correct-light);
-    color: var(--color-correct);
-}
-#learn-feedback.incorrect {
-    background-color: var(--color-incorrect-light);
-    color: var(--color-incorrect);
-}
+        if (mode === 'flashcards') {
+            renderFlashcard();
+        }
+    }
 
-/* --- Empty / Disabled States --- */
-#empty-deck-view p, #learn-mode-disabled p {
-    color: var(--color-text-secondary);
-    font-size: 1.1rem;
-}
+    /**
+     * Attaches all primary event listeners.
+     */
+    function addEventListeners() {
+        // NEW: Theme toggle
+        dom.themeToggleButton.addEventListener('click', toggleTheme);
 
+        // Mode navigation
+        dom.navButtons.forEach(button => {
+            button.addEventListener('click', () => setMode(button.dataset.mode));
+        });
 
-/* --- Toast Notification --- */
-#toast-notification {
-    background-color: var(--color-card-bg);
-    color: var(--color-text-primary);
-    font-weight: 600;
-    border-radius: var(--border-radius-button);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-lg);
-    padding: 1rem 1.5rem;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-#toast-notification.show {
-    opacity: 1;
-    transform: translateY(0);
-}
+        // Flashcard controls
+        dom.flashcardContainer.addEventListener('click', () => {
+            dom.flashcardContainer.classList.toggle('is-flipped');
+        });
+        dom.prevCardButton.addEventListener('click', showPrevCard);
+        dom.nextCardButton.addEventListener('click', showNextCard);
 
-/* --- Tailwind CSS Overrides/Helpers --- */
-/* (This ensures the Tailwind classes in the HTML work with the CSS) */
-.hidden { display: none !important; } /* Use !important to override JS */
+        // Create deck controls
+        dom.parseDeckButton.addEventListener('click', parseAndLoadDeck);
+        
+        // Share button
+        dom.shareDeckButton.addEventListener('click', shareDeck);
+    }
+
+    // --- FLASHCARD MODE ---
+
+    /**
+     * Renders the current flashcard.
+     */
+    function renderFlashcard() {
+        if (app.currentDeck.length === 0) return;
+
+        const card = app.currentDeck[app.currentCardIndex];
+        dom.flashcardFront.textContent = card.term;
+        dom.flashcardBack.textContent = card.definition;
+        dom.cardCounter.textContent = `${app.currentCardIndex + 1} / ${app.currentDeck.length}`;
+        dom.flashcardContainer.classList.remove('is-flipped');
+    }
+
+    function showPrevCard() {
+        if (app.currentDeck.length === 0) return;
+        app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
+        renderFlashcard();
+    }
+
+    function showNextCard() {
+        if (app.currentDeck.length === 0) return;
+        app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
+        renderFlashcard();
+    }
+
+    // --- LEARN MODE ---
+
+    function startLearnMode() {
+        if (app.currentDeck.length < 4) return;
+        dom.learnFeedback.classList.add('hidden');
+        renderLearnQuestion();
+    }
+
+    function renderLearnQuestion() {
+        const card = getNextLearnCard();
+        if (!card) {
+            dom.learnTerm.textContent = "No cards available for learning.";
+            dom.learnOptions.innerHTML = '';
+            return;
+        }
+
+        app.currentLearnCard = card;
+        const options = generateQuizOptions(card);
+
+        dom.learnTerm.textContent = card.term;
+        dom.learnOptions.innerHTML = ''; 
+        
+        dom.learnFeedback.classList.add('hidden');
+        dom.learnFeedback.classList.remove('correct', 'incorrect');
+
+        options.forEach(option => {
+            const button = document.createElement('button');
+            // MODIFIED: Added rounded-xl, kept layout classes
+            button.className = 'learn-option p-4 rounded-xl border text-left';
+            button.textContent = option;
+            button.dataset.answer = option;
+            button.addEventListener('click', handleLearnAnswer);
+            dom.learnOptions.appendChild(button);
+        });
+    }
+
+    function getNextLearnCard() {
+        const now = Date.now();
+        const dueCards = app.currentDeck.filter(card => card.nextReview <= now);
+
+        if (dueCards.length > 0) {
+            dueCards.sort((a, b) => a.score - b.score);
+            return dueCards[0];
+        }
+
+        const allCardsSorted = [...app.currentDeck].sort((a, b) => a.score - b.score);
+        return allCardsSorted[0];
+    }
+
+    function generateQuizOptions(correctCard) {
+        const options = new Set();
+        options.add(correctCard.definition);
+
+        const distractorPool = app.currentDeck.filter(card => card.id !== correctCard.id);
+        
+        for (let i = distractorPool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
+        }
+
+        for (const card of distractorPool) {
+            if (options.size < 4) {
+                options.add(card.definition);
+            } else {
+                break;
+            }
+        }
+        
+        const shuffledOptions = Array.from(options);
+        for (let i = shuffledOptions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+        }
+
+        return shuffledOptions;
+    }
+
+    function handleLearnAnswer(event) {
+        const selectedButton = event.currentTarget;
+        const selectedAnswer = selectedButton.dataset.answer;
+        const correctAnswer = app.currentLearnCard.definition;
+        const now = Date.now();
+
+        dom.learnOptions.querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+            if (btn.dataset.answer === correctAnswer) {
+                btn.classList.add('correct');
+            } else if (btn === selectedButton) {
+                btn.classList.add('incorrect');
+            }
+        });
+
+        if (selectedAnswer === correctAnswer) {
+            app.currentLearnCard.score = Math.min(app.currentLearnCard.score + 1, 5);
+            app.currentLearnCard.nextReview = now + SRS_INTERVALS[app.currentLearnCard.score];
+            dom.learnFeedback.textContent = "Correct!";
+            dom.learnFeedback.classList.add('correct');
+            dom.learnFeedback.classList.remove('incorrect');
+        } else {
+            app.currentLearnCard.score = 0;
+            app.currentLearnCard.nextReview = now + INCORRECT_INTERVAL;
+            dom.learnFeedback.textContent = "Incorrect. The correct answer is: " + correctAnswer;
+            dom.learnFeedback.classList.add('incorrect');
+            dom.learnFeedback.classList.remove('correct');
+        }
+        
+        app.currentLearnCard.lastReviewed = now;
+        dom.learnFeedback.classList.remove('hidden');
+
+        saveProgressToLocalStorage();
+        setTimeout(renderLearnQuestion, 2000);
+    }
+
+    // --- CREATE DECK ---
+
+    function parseAndLoadDeck() {
+        const input = dom.deckInputArea.value.trim();
+        if (!input) {
+            alert("Input area is empty."); // Simple alert is fine for this action
+            return;
+        }
+
+        const lines = input.split('\n');
+        const newDeck = [];
+        let errorCount = 0;
+
+        for (const line of lines) {
+            const parts = line.split('|');
+            if (parts.length === 2) {
+                const term = parts[0].trim();
+                const definition = parts[1].trim();
+                if (term && definition) {
+                    newDeck.push({ term, definition });
+                } else {
+                    errorCount++;
+                }
+            } else if (line.trim() !== '') {
+                errorCount++;
+            }
+        }
+
+        if (newDeck.length === 0) {
+            alert("Could not parse any valid cards. Please check the format.");
+            return;
+        }
+
+        if (errorCount > 0) {
+            alert(`Successfully loaded ${newDeck.length} cards, but ${errorCount} lines were ignored due to formatting errors.`);
+        }
+
+        try {
+            const jsonString = JSON.stringify(newDeck);
+            const base64String = btoa(jsonString);
+            window.location.hash = base64String;
+            location.reload(); 
+        } catch (error) {
+            console.error("Error creating deck hash:", error);
+            alert("An error occurred while trying to load the new deck.");
+        }
+    }
+
+    // --- SHARE DECK ---
+
+    function shareDeck() {
+        if (app.currentDeck.length === 0) {
+            showToast("Cannot share an empty deck!");
+            return;
+        }
+
+        try {
+            const baseDeck = app.currentDeck.map(({ term, definition }) => ({ term, definition }));
+            const jsonString = JSON.stringify(baseDeck);
+            const base64String = btoa(jsonString);
+            const url = `${window.location.origin}${window.location.pathname}#${base64String}`;
+
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showToast("Share link copied to clipboard!");
+                }).catch(err => {
+                    console.error("Failed to copy to clipboard:", err);
+                    fallbackCopyTextToClipboard(url);
+                });
+            } else {
+                fallbackCopyTextToClipboard(url);
+            }
+
+        } catch (error) {
+            console.error("Error generating share link:", error);
+            showToast("Error generating share link.");
+        }
+    }
+
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showToast("Share link copied to clipboard!");
+            } else {
+                showToast("Could not copy link.");
+            }
+        } catch (err) {
+            showToast("Could not copy link.");
+        }
+        document.body.removeChild(textArea);
+    }
+
+    function showToast(message) {
+        if (app.toastTimeout) {
+            clearTimeout(app.toastTimeout);
+        }
+        dom.toastNotification.textContent = message;
+        dom.toastNotification.classList.add('show');
+        app.toastTimeout = setTimeout(() => {
+            dom.toastNotification.classList.remove('show');
+            app.toastTimeout = null; 
+        }, 3000);
+    }
+
+    // --- START THE APP ---
+    init();
+
+});
 
