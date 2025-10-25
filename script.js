@@ -276,16 +276,40 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.flashcardContainer.classList.remove('is-flipped');
     }
 
+    // MODIFIED: Re-written to fade out, change, and fade in.
     function showPrevCard() {
         if (app.currentDeck.length === 0) return;
-        app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
-        renderFlashcard();
+        
+        // 1. Fade out
+        dom.flashcardContainer.style.opacity = 0;
+
+        // 2. Wait for fade to finish
+        setTimeout(() => {
+            // 3. Change content while invisible
+            app.currentCardIndex = (app.currentCardIndex - 1 + app.currentDeck.length) % app.currentDeck.length;
+            renderFlashcard(); // This updates text AND removes .is-flipped
+            
+            // 4. Fade in
+            dom.flashcardContainer.style.opacity = 1;
+        }, 200); // 200ms matches the CSS opacity transition
     }
 
+    // MODIFIED: Re-written to fade out, change, and fade in.
     function showNextCard() {
         if (app.currentDeck.length === 0) return;
-        app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
-        renderFlashcard();
+
+        // 1. Fade out
+        dom.flashcardContainer.style.opacity = 0;
+
+        // 2. Wait for fade to finish
+        setTimeout(() => {
+            // 3. Change content while invisible
+            app.currentCardIndex = (app.currentCardIndex + 1) % app.currentDeck.length;
+            renderFlashcard(); // This updates text AND removes .is-flipped
+
+            // 4. Fade in
+            dom.flashcardContainer.style.opacity = 1;
+        }, 200); // 200ms matches the CSS opacity transition
     }
 
     // --- LEARN MODE ---
@@ -518,4 +542,5 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 
 });
+
 
