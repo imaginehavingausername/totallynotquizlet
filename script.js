@@ -628,8 +628,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. Add class to disable flip animation
-            dom.flashcardContainer.classList.add('no-flip-animation');
+            // 3. ***** START FIX *****
+            // Temporarily disable all transitions
+            dom.flashcardContainer.style.transition = 'none';
             
             // 4. Instantly remove 'is-flipped' (so it's on the front face)
             dom.flashcardContainer.classList.remove('is-flipped');
@@ -642,8 +643,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // 6. Force reflow to apply instant changes
             void dom.flashcardContainer.offsetWidth; 
 
-            // 7. Remove class to re-enable flip animation for next click
-            dom.flashcardContainer.classList.remove('no-flip-animation');
+            // 7. Re-enable transitions (by removing the inline style)
+            dom.flashcardContainer.style.transition = ''; 
+            // ***** END FIX *****
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
@@ -666,8 +668,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. Add class to disable flip animation
-            dom.flashcardContainer.classList.add('no-flip-animation');
+            // 3. ***** START FIX *****
+            // Temporarily disable all transitions
+            dom.flashcardContainer.style.transition = 'none';
             
             // 4. Instantly remove 'is-flipped' (so it's on the front face)
             dom.flashcardContainer.classList.remove('is-flipped');
@@ -680,8 +683,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // 6. Force reflow to apply instant changes
             void dom.flashcardContainer.offsetWidth; 
 
-            // 7. Remove class to re-enable flip animation for next click
-            dom.flashcardContainer.classList.remove('no-flip-animation');
+            // 7. Re-enable transitions (by removing the inline style)
+            dom.flashcardContainer.style.transition = '';
+            // ***** END FIX *****
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
@@ -1438,4 +1442,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
