@@ -442,10 +442,9 @@ body.light-mode .create-toggle-button.active {
     touch-action: none; /* NEW: Prevent scrolling on swipe */
 }
 
-/* NEW: This class disables the flip animation temporarily */
-.flashcard.no-flip-animation {
-    transition: opacity 0.2s ease-in-out; /* Only transition opacity */
-}
+/* REMOVED: .flashcard.no-flip-animation
+  This is now handled by inline styles in script.js for a more robust fix.
+*/
 
 .flashcard.is-flipped {
     transform: rotateY(180deg);
