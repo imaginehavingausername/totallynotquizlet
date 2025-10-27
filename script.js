@@ -13,16 +13,24 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         studyDeck: [], // A (potentially shuffled) copy of cards for studying
         learnSessionCards: [], // Cards for the current learn session
+        typeSessionCards: [], // NEW: Cards for the current type session
         currentCardIndex: 0,
-        currentMode: 'flashcards', // 'flashcards', 'learn', 'create', 'empty'
+        currentMode: 'flashcards', // 'flashcards', 'learn', 'type', 'create', 'empty'
         currentLearnCard: null,
+        currentTypeCard: null, // NEW
+        lastTypeCard: null, // NEW: For the override button
         progressData: new Map(), // Stores progress keyed by 'term|definition'
         localStorageKey: 'flashcardAppProgress',
         themeKey: 'flashcardAppTheme',
         toastTimeout: null,
         isAnimating: false,
         draggedItem: null, // For drag and drop
-        createMode: 'manual' // 'manual' or 'paste'
+        createMode: 'manual', // 'manual' or 'paste'
+        // NEW: Swipe navigation
+        touchStartX: 0,
+        touchStartY: 0,
+        touchEndX: 0,
+        touchEndY: 0
     };
 
     // --- DOM ELEMENTS ---
@@ -60,10 +68,28 @@ document.addEventListener('DOMContentLoaded', () => {
         learnTerm: document.getElementById('learn-term'),
         learnOptions: document.getElementById('learn-options'),
         learnFeedback: document.getElementById('learn-feedback'),
-        // NEW: Learn Complete View
         learnCompleteView: document.getElementById('learn-complete-view'),
         learnRestartButton: document.getElementById('learn-restart-button'),
-        learnSwitchTypeButton: document.getElementById('learn-switch-type-button'),
+        // MODIFIED: Corrected the ID to match the HTML
+        learnSwitchModeButton: document.getElementById('learn-switch-type-button'), 
+
+        // NEW: Type View
+        typeView: document.getElementById('type-view'),
+        typeModeDisabled: document.getElementById('type-mode-disabled'),
+        typeModeQuiz: document.getElementById('type-mode-quiz'),
+        typeCompleteView: document.getElementById('type-complete-view'),
+        typeQuestionBox: document.getElementById('type-question-box'),
+        typeQuestionTerm: document.getElementById('type-question-term'),
+        typeInputForm: document.getElementById('type-input-form'),
+        typeInputArea: document.getElementById('type-input-area'),
+        typeSubmitButton: document.getElementById('type-submit-button'),
+        typeFeedback: document.getElementById('type-feedback'),
+        typeFeedbackMessage: document.getElementById('type-feedback-message'),
+        typeFeedbackCorrectAnswer: document.getElementById('type-feedback-correct-answer'),
+        typeOverrideWrongButton: document.getElementById('type-override-wrong-button'), // MODIFIED
+        typeOverrideCorrectButton: document.getElementById('type-override-correct-button'), // NEW
+        typeRestartButton: document.getElementById('type-restart-button'),
+        typeSwitchModeButton: document.getElementById('type-switch-mode-button'),
 
         // Other
         toastNotification: document.getElementById('toast-notification'),
@@ -99,6 +125,10 @@ document.addEventListener('DOMContentLoaded', () => {
         5: 7 * 24 * 60 * 60 * 1000  // 7 days
     };
     const INCORRECT_INTERVAL = 60 * 1000; // 1 minute
+    const TYPE_CLOSE_THRESHOLD = 2; // NEW: Max Levenshtein distance for "close"
+    const TYPE_CORRECT_DELAY = 1500; // NEW
+    const TYPE_INCORRECT_DELAY = 3000; // NEW
+    const TYPE_CLOSE_DELAY = 4000; // NEW
 
     // --- CORE LOGIC ---
 
@@ -209,12 +239,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadDeckFromURL() {
         // MODIFIED: rawDeck is now an object
         let rawDeck = getDefaultDeck();
-        const hash = window.location.hash.substring(1);
+        let hash = window.location.hash.substring(1); // <-- Get hash as 'let'
         const defaultSettings = { shuffle: false, termFirst: true };
 
         if (hash) {
+            
+            // --- FIX FOR MOBILE SHARING ---
+            // Mobile apps often replace '+' with ' ' in URLs. We must change them back.
+            hash = hash.replace(/ /g, '+');
+            // --- END FIX ---
+
             try {
-                const jsonString = atob(hash);
+                const jsonString = atob(hash); // Decode the *fixed* hash
                 const parsedDeck = JSON.parse(jsonString);
                 
                 // Check for new structure (with settings)
@@ -300,7 +336,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'learn') {
             dom.learnModeDisabled.classList.add('hidden'); // Hide disabled view
             // Note: startLearnMode() will handle showing/hiding quiz vs. complete
-            startLearnMode();
+        
+        // NEW: Type mode logic
+        } else if (app.currentDeck.cards.length < 1 && mode === 'type') {
+            dom.typeModeQuiz.classList.add('hidden');
+            dom.typeCompleteView.classList.add('hidden');
+            dom.typeModeDisabled.classList.remove('hidden');
+        } else if (mode === 'type') {
+            dom.typeModeDisabled.classList.add('hidden');
         }
 
         // NEW: Update header title
@@ -321,16 +364,41 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
 
-        if (mode === 'flashcards') {
-            // NEW: Create study deck
+        // NEW: Create studyDeck *before* mode-specific logic
+        // This ensures studyDeck is always up-to-date with settings
+        if (app.currentDeck.cards.length > 0) {
             app.studyDeck = [...app.currentDeck.cards];
             if (app.currentDeck.settings.shuffle) {
                 shuffleArray(app.studyDeck);
             }
-            app.currentCardIndex = 0;
+        } else {
+            app.studyDeck = [];
+        }
 
-            renderFlashcardContent(); // MODIFIED: Call content-only function
-            dom.flashcardContainer.classList.remove('is-flipped'); // Ensure it starts on the front
+
+        if (mode === 'flashcards') {
+            // studyDeck is already created and shuffled (or not)
+            app.currentCardIndex = 0;
+            renderFlashcardContent();
+            dom.flashcardContainer.classList.remove('is-flipped');
+        } else if (mode === 'learn') {
+            // Now that studyDeck is ready, start learn mode
+            // This check is needed again in case the mode was set programmatically
+            if (app.currentDeck.cards.length >= 4) {
+                 // MODIFIED: Only start a new session if one isn't active
+                 if (app.learnSessionCards.length === 0) {
+                    startLearnMode();
+                 }
+                 // If a session is active (length > 0), do nothing.
+                 // This preserves the user's progress when switching tabs.
+            }
+        // NEW: Start type mode
+        } else if (mode === 'type') {
+            if (app.currentDeck.cards.length >= 1) {
+                if (app.typeSessionCards.length === 0) {
+                    startTypeMode();
+                }
+            }
         }
     }
 
@@ -354,6 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         dom.prevCardButton.addEventListener('click', showPrevCard);
         dom.nextCardButton.addEventListener('click', showNextCard);
+
+        // NEW: Swipe navigation for flashcards
+        dom.flashcardContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+        dom.flashcardContainer.addEventListener('touchmove', handleTouchMove, { passive: true });
+        dom.flashcardContainer.addEventListener('touchend', handleTouchEnd);
 
         // Create deck controls (MODIFIED)
         dom.parseDeckButton.addEventListener('click', parseAndLoadDeck);
@@ -399,10 +472,34 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.settingToggleStartWith.addEventListener('click', handleStartWithSettingChange);
     
         // NEW: Learn Complete Listeners
-        dom.learnRestartButton.addEventListener('click', startLearnMode);
-        dom.learnSwitchTypeButton.addEventListener('click', () => { 
-            showToast("Type mode is coming soon!"); 
-        });
+        // MODIFIED: Added check for null in case element doesn't exist
+        if (dom.learnRestartButton) {
+            dom.learnRestartButton.addEventListener('click', startLearnMode);
+        }
+        if (dom.learnSwitchModeButton) {
+            dom.learnSwitchModeButton.addEventListener('click', () => setMode('type'));
+        }
+
+        // NEW: Type Mode Listeners
+        // MODIFIED: Added checks for null to prevent script crash
+        if (dom.typeInputForm) {
+            dom.typeInputForm.addEventListener('submit', handleTypeAnswer);
+        }
+        if (dom.typeSubmitButton) {
+            dom.typeSubmitButton.addEventListener('click', handleTypeAnswer);
+        }
+        if (dom.typeOverrideWrongButton) {
+            dom.typeOverrideWrongButton.addEventListener('click', handleTypeOverrideWrong);
+        }
+        if (dom.typeOverrideCorrectButton) {
+            dom.typeOverrideCorrectButton.addEventListener('click', handleTypeOverrideCorrect);
+        }
+        if (dom.typeRestartButton) {
+            dom.typeRestartButton.addEventListener('click', startTypeMode);
+        }
+        if (dom.typeSwitchModeButton) {
+            dom.typeSwitchModeButton.addEventListener('click', () => setMode('learn'));
+        }
     }
 
     // --- NEW: About Modal Functions ---
@@ -427,6 +524,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideSettingsModal() {
         dom.settingsModalOverlay.classList.remove('visible');
+        
+        // NEW: Force-reset the learn session so new settings (like shuffle) apply
+        if (app.currentMode === 'learn') {
+            app.learnSessionCards = []; 
+        }
+
         // If mode is flashcards or learn, reset the view to apply changes
         if (app.currentMode === 'flashcards' || app.currentMode === 'learn') {
             setMode(app.currentMode);
@@ -463,30 +566,31 @@ document.addEventListener('DOMContentLoaded', () => {
             button.textContent = inactiveText ? inactiveText : `${activeText}: OFF`;
         }
     }
+    // --- End Settings Modal Functions ---
 
+
+    // --- NEW: Progress Update Function ---
     /**
-     * NEW: Saves the current deck (title, cards, settings) to the URL hash.
+     * Updates a card's SRS progress and saves it.
+     * @param {object} card - The card object to update.
+     * @param {boolean} wasCorrect - If the answer was correct.
      */
-    function updateURLHash() {
-        if (app.currentDeck.cards.length === 0) return;
-        try {
-            const baseDeck = {
-                title: app.currentDeck.title,
-                // Save the canonical card order from .cards, not the shuffled .studyDeck
-                cards: app.currentDeck.cards.map(({ term, definition }) => ({ term, definition })),
-                settings: app.currentDeck.settings
-            };
-            const jsonString = JSON.stringify(baseDeck);
-            const base64String = btoa(jsonString);
-            // Use replaceState to avoid cluttering browser history
-            const newUrl = `${window.location.pathname}${window.location.search}#${base64String}`;
-            history.replaceState(null, '', newUrl);
+    function updateCardProgress(card, wasCorrect) {
+        const now = Date.now();
+        card.lastReviewed = now;
 
-        } catch (error) {
-            console.error("Error updating URL hash:", error);
-            showToast("Error saving settings.");
+        if (wasCorrect) {
+            card.score = Math.min(card.score + 1, 5);
+            card.nextReview = now + SRS_INTERVALS[card.score];
+        } else {
+            card.score = 0;
+            card.nextReview = now + INCORRECT_INTERVAL;
         }
+        
+        // Note: This function doesn't save, as it's often called in a batch.
+        // The calling function (e.g., handleLearnAnswer) should save.
     }
+
 
     // --- FLASHCARD MODE ---
 
@@ -550,7 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 200); // Wait for fade in
         }, 200); // Wait for fade out
     }
-
+    
     // MODIFIED: Re-written to fix animation bug.
     function showNextCard() {
         // MODIFIED: Use studyDeck
@@ -567,12 +671,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 4. Instantly remove 'is-flipped' (so it's on the front face)
             dom.flashcardContainer.classList.remove('is-flipped');
-
+            
             // 5. Change content
             // MODIFIED: Use studyDeck length
             app.currentCardIndex = (app.currentCardIndex + 1) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
-
+            
             // 6. Force reflow to apply instant changes
             void dom.flashcardContainer.offsetWidth; 
 
@@ -581,13 +685,71 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
-            
+
             // 9. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
             }, 200); // Wait for fade in
         }, 200); // Wait for fade out
     }
+
+    // --- NEW: Swipe Navigation Handlers ---
+    
+    /**
+     * Records the start of a touch event for swiping
+     */
+    function handleTouchStart(e) {
+        app.touchStartX = e.changedTouches[0].screenX;
+        app.touchStartY = e.changedTouches[0].screenY;
+        // Reset end coordinates
+        app.touchEndX = 0; 
+        app.touchEndY = 0;
+    }
+
+    /**
+     * Records the movement of a touch (needed for touchend)
+     */
+    function handleTouchMove(e) {
+        app.touchEndX = e.changedTouches[0].screenX;
+        app.touchEndY = e.changedTouches[0].screenY;
+    }
+
+    /**
+     * Determines if a swipe occurred and navigates cards
+     */
+    function handleTouchEnd(e) {
+        // Check if touch moved significantly
+        if (app.touchEndX === 0) {
+            // No 'touchmove' event fired, so this is a tap.
+            // Allow the 'click' event to proceed for flipping.
+            return; 
+        }
+
+        const dx = app.touchEndX - app.touchStartX;
+        const dy = app.touchEndY - app.touchStartY;
+        const threshold = 75; // Min pixels for a swipe
+        
+        // Check if horizontal swipe is dominant and passes threshold
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold) {
+            // Horizontal swipe detected
+            if (dx > 0) {
+                // Swipe Right (Previous Card)
+                showPrevCard();
+            } else {
+                // Swipe Left (Next Card)
+                showNextCard();
+            }
+            
+            // This was a swipe, so prevent the 'click' event from flipping the card
+            e.preventDefault(); 
+        }
+
+        // Reset start coordinates for the next touch
+        app.touchStartX = 0;
+        app.touchStartY = 0;
+        // Note: End coordinates are reset in touchstart
+    }
+
 
     // --- LEARN MODE ---
 
@@ -603,6 +765,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         renderLearnQuestion();
     }
+
+
 
     function renderLearnQuestion() {
         // NEW: Check for completion
@@ -709,15 +873,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (selectedAnswer === correctAnswer) {
             app.learnSessionCards.shift(); // NEW: Remove correct card from session
-            app.currentLearnCard.score = Math.min(app.currentLearnCard.score + 1, 5);
-            app.currentLearnCard.nextReview = now + SRS_INTERVALS[app.currentLearnCard.score];
+            updateCardProgress(app.currentLearnCard, true); // MODIFIED
             dom.learnFeedback.textContent = "Correct!";
             dom.learnFeedback.classList.add('correct');
             dom.learnFeedback.classList.remove('incorrect');
         } else {
             app.learnSessionCards.push(app.learnSessionCards.shift()); // NEW: Move incorrect card to back
-            app.currentLearnCard.score = 0;
-            app.currentLearnCard.nextReview = now + INCORRECT_INTERVAL;
+            updateCardProgress(app.currentLearnCard, false); // MODIFIED
             // MODIFIED: Show the correct answer in the feedback
             dom.learnFeedback.textContent = "Incorrect. The correct answer is: " + correctAnswer;
             dom.learnFeedback.classList.add('incorrect');
@@ -726,13 +888,182 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Note: app.currentLearnCard is an object from the studyDeck, but it's
         // a reference to the *same object* in app.currentDeck.cards,
-        // so saving progress here updates the master list.
-        app.currentLearnCard.lastReviewed = now;
+        // so progress updates correctly.
         dom.learnFeedback.classList.remove('hidden');
 
         saveProgressToLocalStorage();
         setTimeout(renderLearnQuestion, 2000);
     }
+
+    // --- NEW: TYPE MODE ---
+
+    /**
+     * Starts a new "Type" mode session.
+     */
+    function startTypeMode() {
+        if (app.studyDeck.length < 1) return; // Need at least 1 card
+        
+        dom.typeFeedback.classList.add('hidden');
+        dom.typeCompleteView.classList.add('hidden');
+        dom.typeModeQuiz.classList.remove('hidden');
+        
+        app.typeSessionCards = [...app.studyDeck]; // Create session list
+        shuffleArray(app.typeSessionCards); // Shuffle session list
+        
+        renderTypeQuestion();
+    }
+
+    /**
+     * Renders the next "Type" question.
+     */
+    function renderTypeQuestion() {
+        // Check for completion
+        if (app.typeSessionCards.length === 0) {
+            dom.typeModeQuiz.classList.add('hidden');
+            dom.typeCompleteView.classList.remove('hidden');
+            return;
+        }
+
+        // Ensure quiz is visible and complete is hidden
+        dom.typeModeQuiz.classList.remove('hidden');
+        dom.typeCompleteView.classList.add('hidden');
+        
+        app.currentTypeCard = app.typeSessionCards[0]; // Get card
+        
+        // Set question text (respects 'termFirst')
+        const questionText = app.currentDeck.settings.termFirst 
+            ? app.currentTypeCard.term 
+            : app.currentTypeCard.definition;
+        dom.typeQuestionTerm.textContent = questionText;
+        
+        // Reset inputs
+        dom.typeInputArea.value = '';
+        dom.typeInputArea.disabled = false;
+        dom.typeSubmitButton.disabled = false;
+        dom.typeFeedback.classList.add('hidden');
+        dom.typeFeedback.classList.remove('correct', 'incorrect', 'close'); // <-- THE FIX
+        
+        // MODIFIED: Explicitly clear feedback text
+        dom.typeFeedbackMessage.textContent = '';
+        dom.typeFeedbackCorrectAnswer.textContent = '';
+        
+        dom.typeOverrideWrongButton.classList.add('hidden'); 
+        dom.typeOverrideCorrectButton.classList.add('hidden'); 
+    } 
+
+    /**
+     * Handles the user submitting a typed answer.
+     */
+    function handleTypeAnswer(e) {
+        if (e) e.preventDefault(); // Stop form submission
+        if (dom.typeInputArea.disabled) return; // Prevent double-submit
+
+        const userAnswer = dom.typeInputArea.value.trim();
+        if (!userAnswer) return; // Don't submit empty answers
+
+        const correctAnswer = app.currentDeck.settings.termFirst
+            ? app.currentTypeCard.definition
+            : app.currentTypeCard.term;
+
+        // Compare case-insensitively
+        const distance = levenshteinDistance(userAnswer.toLowerCase(), correctAnswer.toLowerCase());
+
+        // Disable inputs
+        dom.typeInputArea.disabled = true;
+        dom.typeSubmitButton.disabled = true;
+        dom.typeFeedback.classList.remove('hidden', 'correct', 'incorrect', 'close');
+        dom.typeOverrideWrongButton.classList.add('hidden'); // MODIFIED
+        dom.typeOverrideCorrectButton.classList.add('hidden'); // NEW
+
+        let nextQuestionDelay = TYPE_INCORRECT_DELAY;
+
+        if (distance === 0) {
+            // --- Perfect Match ---
+            dom.typeFeedback.classList.add('correct');
+            dom.typeFeedbackMessage.textContent = "Correct!";
+            dom.typeFeedbackCorrectAnswer.textContent = '';
+            
+            updateCardProgress(app.currentTypeCard, true);
+            app.typeSessionCards.shift(); // Remove from session
+            nextQuestionDelay = TYPE_CORRECT_DELAY;
+
+        } else if (distance <= TYPE_CLOSE_THRESHOLD) {
+            // --- Close Match ---
+            dom.typeFeedback.classList.add('close');
+            dom.typeFeedbackMessage.textContent = "Close!";
+            dom.typeFeedbackCorrectAnswer.textContent = `Correct answer: ${correctAnswer}`;
+            dom.typeOverrideWrongButton.classList.remove('hidden'); // MODIFIED
+
+            // Assume correct, but cache the card in case of override
+            updateCardProgress(app.currentTypeCard, true);
+            app.lastTypeCard = app.typeSessionCards.shift(); // Remove and store
+            nextQuestionDelay = TYPE_CLOSE_DELAY;
+
+        } else {
+            // --- Incorrect Match ---
+            dom.typeFeedback.classList.add('incorrect');
+            dom.typeFeedbackMessage.textContent = "Incorrect.";
+            dom.typeFeedbackCorrectAnswer.textContent = `Correct answer: ${correctAnswer}`;
+            dom.typeOverrideCorrectButton.classList.remove('hidden'); // NEW
+            
+            updateCardProgress(app.currentTypeCard, false);
+            // MODIFIED: Store card *before* moving it
+            app.lastTypeCard = app.typeSessionCards.shift(); // Remove and store
+            app.typeSessionCards.push(app.lastTypeCard); // Move to back
+            
+            // THE FIX: Changed DELLAY (2 L's) back to DELAY (1 L)
+            nextQuestionDelay = TYPE_INCORRECT_DELAY;
+        }
+
+        saveProgressToLocalStorage();
+        setTimeout(renderTypeQuestion, nextQuestionDelay);
+    }
+
+    /**
+     * MODIFIED: Handles the "I got it wrong" override button.
+     */
+    function handleTypeOverrideWrong() {
+        if (!app.lastTypeCard) return; // No card to override
+
+        // 1. Re-add the card to the end of the session
+        app.typeSessionCards.push(app.lastTypeCard);
+
+        // 2. Mark the card as incorrect (resets score)
+        updateCardProgress(app.lastTypeCard, false);
+        saveProgressToLocalStorage();
+
+        // 3. Clear the cache and hide the button
+        app.lastTypeCard = null;
+        dom.typeOverrideWrongButton.classList.add('hidden');
+
+        // 4. Give feedback
+        showToast("Got it. We'll ask that one again.");
+    }
+
+    /**
+     * NEW: Handles the "I got it correct" override button.
+     */
+    function handleTypeOverrideCorrect() {
+        if (!app.lastTypeCard) return; // No card to override
+
+        // 1. Update progress to correct
+        updateCardProgress(app.lastTypeCard, true);
+        saveProgressToLocalStorage();
+
+        // 2. The card is at the end of the session array. Find and remove it.
+        const cardIndex = app.typeSessionCards.lastIndexOf(app.lastTypeCard);
+        if (cardIndex > -1) {
+            app.typeSessionCards.splice(cardIndex, 1);
+        }
+
+        // 3. Clear cache and hide button
+        app.lastTypeCard = null;
+        dom.typeOverrideCorrectButton.classList.add('hidden');
+
+        // 4. Give feedback
+        showToast("Great! Marking that as correct.");
+    }
+
 
     // --- CREATE DECK ---
 
@@ -740,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * NEW: Renders the create editor, populating title and cards.
      */
     function renderCreateEditor() {
-        dom.deckTitleInput.value = app.currentDeck.title;
+        dom.deckTitleInput.value = app.currentDeck.title || ''; // Handle empty title
         dom.cardEditorList.innerHTML = ''; // Clear list
 
         if (app.currentDeck.cards.length > 0) {
@@ -986,6 +1317,61 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    /**
+     * NEW: Calculates Levenshtein distance between two strings.
+     * @param {string} a - The first string.
+     * @param {string} b - The second string.
+     * @returns {number} The distance.
+     */
+    function levenshteinDistance(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+
+        const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+
+        for (let i = 0; i <= a.length; i++) {
+            matrix[0][i] = i;
+        }
+        for (let j = 0; j <= b.length; j++) {
+            matrix[j][0] = j;
+        }
+
+        for (let j = 1; j <= b.length; j++) {
+            for (let i = 1; i <= a.length; i++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                matrix[j][i] = Math.min(
+                    matrix[j - 1][i] + 1,     // Deletion
+                    matrix[j][i - 1] + 1,     // Insertion
+                    matrix[j - 1][i - 1] + cost // Substitution
+                );
+            }
+        }
+
+        return matrix[b.length][a.length];
+    }
+    
+    /**
+     * NEW: Updates the URL hash without reloading the page.
+     * Used for saving settings.
+     */
+    function updateURLHash() {
+        try {
+            // Create base deck from app.currentDeck, including settings
+            const baseDeck = {
+                title: app.currentDeck.title,
+                cards: app.currentDeck.cards.map(({ term, definition }) => ({ term, definition })),
+                settings: app.currentDeck.settings
+            };
+            const jsonString = JSON.stringify(baseDeck);
+            const base64String = btoa(jsonString);
+            // Use history.replaceState to avoid adding to browser history
+            history.replaceState(null, '', `#${base64String}`);
+        } catch (error) {
+            console.error("Error updating hash:", error);
+            showToast("Error saving settings.");
         }
     }
 
