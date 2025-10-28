@@ -76,7 +76,8 @@ body {
 
 /* Allow selection on text inputs and content */
 input, textarea, [contenteditable="true"],
-#flashcard-front p, #flashcard-back p, #learn-term, .learn-option {
+#flashcard-front p, #flashcard-back p, #learn-term, .learn-option,
+.match-card { /* NEW: Allow selecting match card text */
     user-select: text;
     -webkit-user-select: text;
     -moz-user-select: text;
@@ -236,7 +237,8 @@ body.light-mode #share-deck-button:hover {
 body[data-mode="create"] #create-view,
 body[data-mode="flashcards"] #flashcards-view,
 body[data-mode="learn"] #learn-view,
-body[data-mode="type"] #type-view, /* NEW */
+body[data-mode="type"] #type-view,
+body[data-mode="match"] #match-view, /* NEW */
 body[data-mode="empty"] #empty-deck-view {
     display: block;
     animation: fadeIn 0.3s ease;
@@ -252,9 +254,11 @@ body[data-mode="empty"] #empty-deck-view {
 #learn-mode-disabled,
 #learn-question-box,
 #learn-complete-view,
-#type-mode-disabled, /* NEW */
-#type-question-box, /* NEW */
-#type-complete-view { /* NEW */
+#type-mode-disabled,
+#type-question-box,
+#type-complete-view,
+#match-mode-disabled, /* NEW */
+#match-complete-view { /* NEW */
     background-color: var(--color-bg-secondary);
     box-shadow: var(--shadow-md);
     border-radius: var(--border-radius-card);
@@ -442,9 +446,10 @@ body.light-mode .create-toggle-button.active {
     touch-action: none; /* NEW: Prevent scrolling on swipe */
 }
 
-/* REMOVED: .flashcard.no-flip-animation
-  This is now handled by inline styles in script.js for a more robust fix.
-*/
+/* NEW: This class disables the flip animation temporarily */
+.flashcard.no-flip-animation {
+    transition: opacity 0.2s ease-in-out; /* Only transition opacity */
+}
 
 .flashcard.is-flipped {
     transform: rotateY(180deg);
@@ -574,7 +579,7 @@ body.light-mode #flashcard-nav button:hover {
     color: var(--color-incorrect);
 }
 
-/* --- NEW: Type Mode --- */
+/* --- Type Mode --- */
 #type-question-box {
     border-radius: var(--border-radius-card);
 }
@@ -650,12 +655,87 @@ body.light-mode #flashcard-nav button:hover {
 }
 
 
+/* --- NEW: Match Mode --- */
+#match-timer {
+    color: var(--color-text-secondary);
+}
+
+.match-card {
+    background-color: var(--color-card-bg);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius-button);
+    padding: 1.25rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-sm);
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    /* justify-content: center; */
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.match-card:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    background-color: var(--color-bg-secondary);
+}
+
+.match-card.selected {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    transform: scale(1.02);
+}
+body.light-mode .match-card.selected {
+    color: var(--color-primary);
+}
+
+.match-card.correct {
+    background-color: var(--color-correct-light);
+    border-color: var(--color-correct);
+    color: var(--color-correct) !important;
+    transform: scale(1.02);
+    transition: all 0.1s ease;
+}
+
+.match-card.incorrect {
+    background-color: var(--color-incorrect-light);
+    border-color: var(--color-incorrect);
+    color: var(--color-incorrect) !important;
+    transform: scale(1.02);
+    animation: shake 0.5s ease;
+    transition: all 0.1s ease;
+}
+
+/* This class fades out and hides the matched cards */
+.match-card.matched {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.9);
+    transition: all 0.3s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0) scale(1.02); }
+    25% { transform: translateX(-5px) scale(1.02); }
+    50% { transform: translateX(5px) scale(1.02); }
+    75% { transform: translateX(-5px) scale(1.02); }
+}
+
+
 /* --- Empty / Disabled States --- */
 #empty-deck-view p, 
 #learn-mode-disabled p, 
 #learn-complete-view p,
-#type-mode-disabled p, /* NEW */
-#type-complete-view p { /* NEW */
+#type-mode-disabled p,
+#type-complete-view p,
+#match-mode-disabled p, /* NEW */
+#match-complete-view p { /* NEW */
     color: var(--color-text-secondary);
     font-size: 1.1rem;
 }
@@ -789,3 +869,4 @@ body.light-mode .settings-toggle-button.active {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
+
