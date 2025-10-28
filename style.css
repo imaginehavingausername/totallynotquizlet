@@ -752,107 +752,20 @@ footer {
     color: var(--color-text-secondary);
     font-size: 0.9rem;
 }
-#about-button {
+/* MODIFIED: Changed from #about-button to .footer-link class */
+.footer-link {
     color: var(--color-text-secondary);
     font-weight: 600;
     transition: color 0.2s ease;
+    background: none; /* NEW: Ensure buttons and links look the same */
+    border: none; /* NEW: Ensure buttons and links look the same */
+    padding: 0; /* NEW: Ensure buttons and links look the same */
 }
-#about-button:hover {
+.footer-link:hover {
     color: var(--color-primary);
 }
 
 
 /* --- NEW: Modal Styles (Shared) --- */
-#about-modal-overlay,
-#settings-modal-overlay {
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-#about-modal-overlay.visible,
-#settings-modal-overlay.visible {
-    visibility: visible;
-    opacity: 1;
-}
-#about-modal-overlay .modal-backdrop,
-#settings-modal-overlay .modal-backdrop {
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-}
-#about-modal-content,
-#settings-modal-content {
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-lg);
-    color: var(--color-text-primary);
-    transform: scale(0.95);
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-#about-modal-overlay.visible #about-modal-content,
-#settings-modal-overlay.visible #settings-modal-content {
-    transform: scale(1);
-    opacity: 1;
-}
-#about-modal-close,
-#settings-modal-close {
-    color: var(--color-text-secondary);
-    transition: color 0.2s ease;
-    background: none;
-    border: none;
-    line-height: 1;
-}
-#about-modal-close:hover,
-#settings-modal-close:hover {
-    color: var(--color-text-primary);
-}
+/* ... existing code ... -->
 
-/* --- NEW: Settings Modal Specific Styles --- */
-#setting-deck-title {
-    /* Reuse styles from create view title input */
-    background-color: transparent;
-    border: none;
-    border-bottom: 2px solid var(--color-border);
-    font-size: 1.25rem; /* Slightly smaller for modal */
-    font-weight: 700;
-    color: var(--color-text-primary);
-    padding: 0.5rem 0.25rem;
-    transition: border-color 0.2s ease;
-}
-#setting-deck-title:focus {
-    outline: none;
-    border-color: var(--color-primary);
-}
-
-.settings-toggle-button {
-    /* Reuse styles from create view toggle button */
-    background-color: var(--color-card-bg);
-    color: var(--color-text-secondary);
-    border: 1px solid var(--color-border);
-    padding: 0.75rem 1.25rem;
-    font-weight: 600;
-    border-radius: var(--border-radius-button);
-    transition: all 0.2s ease;
-    text-align: center;
-}
-.settings-toggle-button:hover {
-    background-color: var(--color-bg-secondary);
-    color: var(--color-text-primary);
-}
-.settings-toggle-button.active {
-    background-color: var(--color-primary-light);
-    color: var(--color-primary);
-    border-color: var(--color-primary);
-    font-weight: 700;
-}
-body.light-mode .settings-toggle-button.active {
-    color: var(--color-primary);
-}
-
-
-/* --- Tailwind CSS Overrides/Helpers --- */
-/* FIXED: Removed the problematic .hidden rule. 
-  The 'hidden' class from Tailwind will now work as expected 
-  (which is fine, as we removed it from the main app-views).
-*/
