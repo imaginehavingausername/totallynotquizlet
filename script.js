@@ -642,9 +642,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX V3 *****
-            // Temporarily disable ONLY transform transition
-            dom.flashcardContainer.style.transition = 'opacity 0.2s ease-in-out';
+            // 3. ***** START FIX *****
+            // Temporarily disable ALL transitions
+            dom.flashcardContainer.style.transition = 'none';
             
             // 4. Change content
             app.currentCardIndex = (app.currentCardIndex - 1 + app.studyDeck.length) % app.studyDeck.length;
@@ -658,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 7. Re-enable all transitions
             dom.flashcardContainer.style.transition = ''; 
-            // ***** END FIX V3 *****
+            // ***** END FIX *****
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
@@ -681,9 +681,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX V3 *****
-            // Temporarily disable ONLY transform transition
-            dom.flashcardContainer.style.transition = 'opacity 0.2s ease-in-out';
+            // 3. ***** START FIX *****
+            // Temporarily disable ALL transitions
+            dom.flashcardContainer.style.transition = 'none';
             
             // 4. Change content
             app.currentCardIndex = (app.currentCardIndex + 1) % app.studyDeck.length;
@@ -697,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 7. Re-enable all transitions
             dom.flashcardContainer.style.transition = '';
-            // ***** END FIX V3 *****
+            // ***** END FIX *****
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
@@ -1454,4 +1454,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
