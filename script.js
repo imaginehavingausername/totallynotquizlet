@@ -356,9 +356,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.headerTitle.textContent = "Totally Not Quizlet";
         }
 
-
+        // ***** START PROGRESS RESET FIX *****
+        const previousMode = app.currentMode; // Store the old mode
         app.currentMode = mode;
         dom.body.dataset.mode = mode;
+        // ***** END PROGRESS RESET FIX *****
 
         dom.navButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
@@ -378,7 +380,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mode === 'flashcards') {
             // studyDeck is already created and shuffled (or not)
-            app.currentCardIndex = 0;
+            
+            // ***** START PROGRESS RESET FIX *****
+            // Only reset the card index if we are coming from a DIFFERENT mode.
+            // If we are just re-loading the flashcard view (e.g., from modal close),
+            // keep the current index.
+            if (previousMode !== 'flashcards') {
+                app.currentCardIndex = 0;
+            }
+            // *Always* render and reset the flip state, just don't reset the index.
+            // ***** END PROGRESS RESET FIX *****
+            
             renderFlashcardContent();
             dom.flashcardContainer.classList.remove('is-flipped');
         } else if (mode === 'learn') {
@@ -548,12 +560,14 @@ document.addEventListener('DOMContentLoaded', () => {
         app.currentDeck.settings.shuffle = !app.currentDeck.settings.shuffle;
         updateSettingsToggle(dom.settingToggleShuffle, app.currentDeck.settings.shuffle, "Shuffle");
         updateURLHash();
+        app.currentCardIndex = 0; // ***** PROGRESS RESET FIX *****
     }
 
     function handleStartWithSettingChange() {
         app.currentDeck.settings.termFirst = !app.currentDeck.settings.termFirst;
         updateSettingsToggle(dom.settingToggleStartWith, app.currentDeck.settings.termFirst, "Term", "Definition");
         updateURLHash();
+        app.currentCardIndex = 0; // ***** PROGRESS RESET FIX *****
     }
 
     /** Helper to update a toggle button's appearance */
@@ -628,31 +642,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX V2 *****
-            // Temporarily disable all transitions
-            dom.flashcardContainer.style.transition = 'none';
+            // 3. ***** START FIX V3 *****
+            // Temporarily disable ONLY transform transition
+            dom.flashcardContainer.style.transition = 'opacity 0.2s ease-in-out';
             
-            // 4. Change content FIRST
+            // 4. Change content
             app.currentCardIndex = (app.currentCardIndex - 1 + app.studyDeck.length) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
             
-            // 5. Force reflow to apply text change
-            void dom.flashcardContainer.offsetWidth; 
-
-            // 6. Instantly remove 'is-flipped' (so it's on the front face)
+            // 5. Instantly remove 'is-flipped' (so it's on the front face)
             dom.flashcardContainer.classList.remove('is-flipped');
             
-            // 7. Force reflow to apply transform change
+            // 6. Force reflow 
             void dom.flashcardContainer.offsetWidth; 
 
-            // 8. Re-enable transitions (by removing the inline style)
+            // 7. Re-enable all transitions
             dom.flashcardContainer.style.transition = ''; 
-            // ***** END FIX V2 *****
+            // ***** END FIX V3 *****
             
-            // 9. Fade in
+            // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
 
-            // 10. Allow new animations
+            // 9. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
             }, 200); // Wait for fade in
@@ -670,31 +681,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX V2 *****
-            // Temporarily disable all transitions
-            dom.flashcardContainer.style.transition = 'none';
+            // 3. ***** START FIX V3 *****
+            // Temporarily disable ONLY transform transition
+            dom.flashcardContainer.style.transition = 'opacity 0.2s ease-in-out';
             
-            // 4. Change content FIRST
+            // 4. Change content
             app.currentCardIndex = (app.currentCardIndex + 1) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
             
-            // 5. Force reflow to apply text change
-            void dom.flashcardContainer.offsetWidth; 
-
-            // 6. Instantly remove 'is-flipped' (so it's on the front face)
+            // 5. Instantly remove 'is-flipped' (so it's on the front face)
             dom.flashcardContainer.classList.remove('is-flipped');
             
-            // 7. Force reflow to apply transform change
+            // 6. Force reflow 
             void dom.flashcardContainer.offsetWidth; 
 
-            // 8. Re-enable transitions (by removing the inline style)
+            // 7. Re-enable all transitions
             dom.flashcardContainer.style.transition = '';
-            // ***** END FIX V2 *****
+            // ***** END FIX V3 *****
             
-            // 9. Fade in
+            // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
 
-            // 10. Allow new animations
+            // 9. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
             }, 200); // Wait for fade in
