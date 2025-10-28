@@ -628,29 +628,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX *****
+            // 3. ***** START FIX V2 *****
             // Temporarily disable all transitions
             dom.flashcardContainer.style.transition = 'none';
             
-            // 4. Instantly remove 'is-flipped' (so it's on the front face)
-            dom.flashcardContainer.classList.remove('is-flipped');
-            
-            // 5. Change content
-            // MODIFIED: Use studyDeck length
+            // 4. Change content FIRST
             app.currentCardIndex = (app.currentCardIndex - 1 + app.studyDeck.length) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
             
-            // 6. Force reflow to apply instant changes
+            // 5. Force reflow to apply text change
             void dom.flashcardContainer.offsetWidth; 
 
-            // 7. Re-enable transitions (by removing the inline style)
-            dom.flashcardContainer.style.transition = ''; 
-            // ***** END FIX *****
+            // 6. Instantly remove 'is-flipped' (so it's on the front face)
+            dom.flashcardContainer.classList.remove('is-flipped');
             
-            // 8. Fade in
+            // 7. Force reflow to apply transform change
+            void dom.flashcardContainer.offsetWidth; 
+
+            // 8. Re-enable transitions (by removing the inline style)
+            dom.flashcardContainer.style.transition = ''; 
+            // ***** END FIX V2 *****
+            
+            // 9. Fade in
             dom.flashcardContainer.style.opacity = 1;
 
-            // 9. Allow new animations
+            // 10. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
             }, 200); // Wait for fade in
@@ -668,29 +670,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX *****
+            // 3. ***** START FIX V2 *****
             // Temporarily disable all transitions
             dom.flashcardContainer.style.transition = 'none';
             
-            // 4. Instantly remove 'is-flipped' (so it's on the front face)
-            dom.flashcardContainer.classList.remove('is-flipped');
-            
-            // 5. Change content
-            // MODIFIED: Use studyDeck length
+            // 4. Change content FIRST
             app.currentCardIndex = (app.currentCardIndex + 1) % app.studyDeck.length;
             renderFlashcardContent(); // Update text
             
-            // 6. Force reflow to apply instant changes
+            // 5. Force reflow to apply text change
             void dom.flashcardContainer.offsetWidth; 
 
-            // 7. Re-enable transitions (by removing the inline style)
-            dom.flashcardContainer.style.transition = '';
-            // ***** END FIX *****
+            // 6. Instantly remove 'is-flipped' (so it's on the front face)
+            dom.flashcardContainer.classList.remove('is-flipped');
             
-            // 8. Fade in
+            // 7. Force reflow to apply transform change
+            void dom.flashcardContainer.offsetWidth; 
+
+            // 8. Re-enable transitions (by removing the inline style)
+            dom.flashcardContainer.style.transition = '';
+            // ***** END FIX V2 *****
+            
+            // 9. Fade in
             dom.flashcardContainer.style.opacity = 1;
 
-            // 9. Allow new animations
+            // 10. Allow new animations
             setTimeout(() => {
                 app.isAnimating = false;
             }, 200); // Wait for fade in
@@ -1442,3 +1446,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
