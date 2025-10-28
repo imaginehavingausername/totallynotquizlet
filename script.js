@@ -15,16 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
         learnSessionCards: [], // Cards for the current learn session
         typeSessionCards: [], // NEW: Cards for the current type session
         matchSessionCards: [], // NEW: Cards for the current match session
-        currentMatchGameCards: [], // NEW: Cards for the current match round
-        selectedMatchCard: null, // NEW: The first card clicked in match mode
-        matchTimerInterval: null, // NEW: Interval for the match timer
-        matchStartTime: 0, // NEW: Start time for match timer
-        isMatching: false, // NEW: Prevents clicks during match animation
         currentCardIndex: 0,
         currentMode: 'flashcards', // 'flashcards', 'learn', 'type', 'match', 'create', 'empty'
         currentLearnCard: null,
         currentTypeCard: null, // NEW
         lastTypeCard: null, // NEW: For the override button
+        
+        // NEW: Match game state
+        selectedTerm: null,
+        selectedDef: null,
+        matchTimerInterval: null,
+        matchStartTime: 0,
+        matchItemsLeft: 0,
+        isCheckingMatch: false, // Prevents double-clicks
+
         progressData: new Map(), // Stores progress keyed by 'term|definition'
         localStorageKey: 'flashcardAppProgress',
         themeKey: 'flashcardAppTheme',
@@ -77,9 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
         learnCompleteView: document.getElementById('learn-complete-view'),
         learnRestartButton: document.getElementById('learn-restart-button'),
         // MODIFIED: Corrected the ID to match the HTML
-        learnSwitchModeButton: document.getElementById('learn-switch-type-button'), 
+        learnSwitchModeButton: document.getElementById('learn-switch-mode-button'), 
 
-        // Type View
+        // NEW: Type View
         typeView: document.getElementById('type-view'),
         typeModeDisabled: document.getElementById('type-mode-disabled'),
         typeModeQuiz: document.getElementById('type-mode-quiz'),
@@ -101,11 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
         matchView: document.getElementById('match-view'),
         matchModeDisabled: document.getElementById('match-mode-disabled'),
         matchModeGame: document.getElementById('match-mode-game'),
-        matchTimer: document.getElementById('match-timer'),
-        matchTermsColumn: document.getElementById('match-terms-column'),
-        matchDefsColumn: document.getElementById('match-defs-column'),
         matchCompleteView: document.getElementById('match-complete-view'),
-        matchFinalTime: document.getElementById('match-final-time'),
+        matchTimer: document.getElementById('match-timer'),
+        matchGameArea: document.getElementById('match-game-area'),
+        matchTermsList: document.getElementById('match-terms-list'),
+        matchDefsList: document.getElementById('match-defs-list'),
         matchRestartButton: document.getElementById('match-restart-button'),
 
         // Other
@@ -146,8 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const TYPE_CORRECT_DELAY = 1500; // NEW
     const TYPE_INCORRECT_DELAY = 3000; // NEW
     const TYPE_CLOSE_DELAY = 4000; // NEW
-    const MATCH_CARD_PAIRS = 10; // NEW: Max pairs per match game
-    const MATCH_ROUND_SIZE = 5; // NEW: Pairs per round
+    const MATCH_INCORRECT_DELAY = 1000; // NEW: Delay for match mode
+    const MATCH_ROUND_SIZE = 10; // NEW: Max cards per match round
 
     // --- CORE LOGIC ---
 
@@ -365,13 +369,14 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.typeModeDisabled.classList.add('hidden');
         
         // NEW: Match mode logic
-        } else if (app.currentDeck.cards.length < 2 && mode === 'match') { // Match needs at least 2 cards
+        } else if (app.currentDeck.cards.length < 2 && mode === 'match') {
             dom.matchModeGame.classList.add('hidden');
             dom.matchCompleteView.classList.add('hidden');
             dom.matchModeDisabled.classList.remove('hidden');
         } else if (mode === 'match') {
             dom.matchModeDisabled.classList.add('hidden');
         }
+
 
         // NEW: Update header title
         if (app.currentDeck.cards.length > 0 && mode !== 'create') {
@@ -388,13 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
         app.currentMode = mode;
         dom.body.dataset.mode = mode;
         // ***** END PROGRESS RESET FIX *****
-
-        // NEW: Stop match timer if navigating away
-        if (previousMode === 'match' && mode !== 'match') {
-            if (app.matchTimerInterval) {
-                clearInterval(app.matchTimerInterval);
-            }
-        }
 
         dom.navButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
@@ -432,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // This check is needed again in case the mode was set programmatically
             if (app.currentDeck.cards.length >= 4) {
                  // MODIFIED: Only start a new session if one isn't active
-                 if (app.learnSessionCards.length === 0) {
+                 if (app.learnSessionCards.length === 0 || previousMode !== 'learn') {
                     startLearnMode();
                  }
                  // If a session is active (length > 0), do nothing.
@@ -441,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // NEW: Start type mode
         } else if (mode === 'type') {
             if (app.currentDeck.cards.length >= 1) {
-                if (app.typeSessionCards.length === 0) {
+                if (app.typeSessionCards.length === 0 || previousMode !== 'type') {
                     startTypeMode();
                 }
             }
@@ -558,8 +556,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dom.matchRestartButton) {
             dom.matchRestartButton.addEventListener('click', startMatchMode);
         }
-        if (dom.matchModeGame) {
-            dom.matchModeGame.addEventListener('click', handleMatchCardClick);
+        if (dom.matchGameArea) {
+            dom.matchGameArea.addEventListener('click', handleMatchClick);
         }
     }
 
@@ -695,9 +693,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX *****
-            // Temporarily disable ALL transitions
-            dom.flashcardContainer.style.transition = 'none';
+            // 3. ***** START FIX V3 *****
+            // Temporarily disable ONLY transform transition
+            dom.flashcardContainer.style.transition = 'opacity 0.2s ease-in-out';
             
             // 4. Change content
             app.currentCardIndex = (app.currentCardIndex - 1 + app.studyDeck.length) % app.studyDeck.length;
@@ -711,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 7. Re-enable all transitions
             dom.flashcardContainer.style.transition = ''; 
-            // ***** END FIX *****
+            // ***** END FIX V3 *****
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
@@ -734,9 +732,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Wait for fade to finish (200ms from CSS)
         setTimeout(() => {
-            // 3. ***** START FIX *****
-            // Temporarily disable ALL transitions
-            dom.flashcardContainer.style.transition = 'none';
+            // 3. ***** START FIX V3 *****
+            // Temporarily disable ONLY transform transition
+            dom.flashcardContainer.style.transition = 'opacity 0.2s ease-in-out';
             
             // 4. Change content
             app.currentCardIndex = (app.currentCardIndex + 1) % app.studyDeck.length;
@@ -750,7 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 7. Re-enable all transitions
             dom.flashcardContainer.style.transition = '';
-            // ***** END FIX *****
+            // ***** END FIX V3 *****
             
             // 8. Fade in
             dom.flashcardContainer.style.opacity = 1;
@@ -964,7 +962,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(renderLearnQuestion, 2000);
     }
 
-    // --- TYPE MODE ---
+    // --- NEW: TYPE MODE ---
 
     /**
      * Starts a new "Type" mode session.
@@ -1136,181 +1134,183 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- NEW: MATCH MODE ---
 
     /**
-     * Starts a new "Match" game.
+     * Starts the entire Match mode session.
      */
     function startMatchMode() {
-        if (app.studyDeck.length < 2) return; // Should be caught by setMode, but good check
-
-        // Reset views
+        if (app.studyDeck.length < 2) return;
+        
         dom.matchCompleteView.classList.add('hidden');
         dom.matchModeGame.classList.remove('hidden');
-        
-        // Reset state
-        resetMatchState();
+
+        app.matchSessionCards = [...app.studyDeck]; // Create session list
+        shuffleArray(app.matchSessionCards); // Shuffle session list
+
+        startMatchRound();
+    }
+
+    /**
+     * Starts a new round of the Match game.
+     */
+    function startMatchRound() {
+        // Clear any existing timer
         if (app.matchTimerInterval) {
             clearInterval(app.matchTimerInterval);
+            app.matchTimerInterval = null;
         }
 
-        // Create the full list of cards for this game
-        let gamePool = [...app.studyDeck];
-        shuffleArray(gamePool);
-        // Take up to MATCH_CARD_PAIRS cards
-        app.matchSessionCards = gamePool.slice(0, MATCH_CARD_PAIRS);
-        
-        // Start timer
-        app.matchStartTime = Date.now();
-        updateMatchTimer(); // Run once immediately
-        app.matchTimerInterval = setInterval(updateMatchTimer, 1000);
+        // Reset selections
+        app.selectedTerm = null;
+        app.selectedDef = null;
+        app.isCheckingMatch = false;
 
-        renderMatchGame();
-    }
-
-    /**
-     * Renders the next round of the match game or the complete screen.
-     */
-    function renderMatchGame() {
         // Check for completion
-        if (app.matchSessionCards.length === 0) {
+        if (app.matchSessionCards.length < 2) {
             dom.matchModeGame.classList.add('hidden');
             dom.matchCompleteView.classList.remove('hidden');
-            if (app.matchTimerInterval) {
-                clearInterval(app.matchTimerInterval);
-            }
-            // Display final time
-            const finalTime = dom.matchTimer.textContent;
-            dom.matchFinalTime.textContent = `You matched all the pairs in ${finalTime}.`;
             return;
         }
 
-        // Get the next batch of cards for the round
-        const roundSize = Math.min(app.matchSessionCards.length, MATCH_ROUND_SIZE);
-        const gameSlice = app.matchSessionCards.slice(0, roundSize);
+        // Ensure game is visible
+        dom.matchModeGame.classList.remove('hidden');
+        dom.matchCompleteView.classList.add('hidden');
 
-        // Create separate term and definition arrays
-        const terms = gameSlice.map(card => ({ type: 'term', text: card.term, pairId: card.id }));
-        const defs = gameSlice.map(card => ({ type: 'def', text: card.definition, pairId: card.id }));
+        // Get cards for this round
+        const roundCards = app.matchSessionCards.slice(0, MATCH_ROUND_SIZE);
+        app.matchItemsLeft = roundCards.length;
+        
+        // Prepare lists
+        let termItems = [];
+        let defItems = [];
 
-        // Shuffle both arrays independently
-        shuffleArray(terms);
-        shuffleArray(defs);
-
-        // Clear columns and render new cards
-        dom.matchTermsColumn.innerHTML = '';
-        dom.matchDefsColumn.innerHTML = '';
-
-        terms.forEach(cardData => createMatchCard(cardData, dom.matchTermsColumn));
-        defs.forEach(cardData => createMatchCard(cardData, dom.matchDefsColumn));
-    }
-
-    /**
-     * Creates and appends a single match card element.
-     * @param {object} cardData - The card data ({type, text, pairId})
-     * @param {HTMLElement} column - The column to append to.
-     */
-    function createMatchCard(cardData, column) {
-        const cardEl = document.createElement('div');
-        cardEl.className = 'match-card'; // CSS will style this
-        cardEl.textContent = cardData.text;
-        cardEl.dataset.type = cardData.type;
-        cardEl.dataset.pairId = cardData.pairId;
-        column.appendChild(cardEl);
-    }
-
-    /**
-     * Handles clicking on a card in the match game.
-     * @param {Event} e - The click event.
-     */
-    function handleMatchCardClick(e) {
-        const clickedCard = e.target.closest('.match-card');
-
-        // Ignore clicks if not a card, during animation, or on a matched card
-        if (!clickedCard || app.isMatching || clickedCard.classList.contains('matched')) {
-            return;
+        for (const card of roundCards) {
+            // Use card.id to link term and definition
+            termItems.push(`<div class="match-item" data-id="${card.id}">${card.term}</div>`);
+            defItems.push(`<div class="match-item" data-id="${card.id}">${card.definition}</div>`);
         }
 
-        // First click
-        if (!app.selectedMatchCard) {
-            app.selectedMatchCard = clickedCard;
-            clickedCard.classList.add('selected');
-            return;
-        }
+        // Shuffle lists independently
+        shuffleArray(termItems);
+        shuffleArray(defItems);
 
-        // Clicked the same card twice (deselect)
-        if (app.selectedMatchCard === clickedCard) {
-            app.selectedMatchCard.classList.remove('selected');
-            app.selectedMatchCard = null;
-            return;
-        }
+        // Populate HTML
+        dom.matchTermsList.innerHTML = termItems.join('');
+        dom.matchDefsList.innerHTML = defItems.join('');
 
-        // Second click (check for match)
-        app.isMatching = true;
-        const cardA = app.selectedMatchCard;
-        const cardB = clickedCard;
-        cardB.classList.add('selected');
-
-        const isPair = cardA.dataset.pairId === cardB.dataset.pairId;
-        const isDifferentType = cardA.dataset.type !== cardB.dataset.type;
-
-        if (isPair && isDifferentType) {
-            // --- Correct Match ---
-            cardA.classList.add('correct');
-            cardB.classList.add('correct');
-
-            // Remove this card from the session pool
-            app.matchSessionCards = app.matchSessionCards.filter(card => card.id !== cardA.dataset.pairId);
-
-            setTimeout(() => {
-                cardA.classList.add('matched'); // Hides via CSS
-                cardB.classList.add('matched');
-                resetMatchState();
-                checkMatchRoundComplete(); // Check if round is over
-            }, 500);
-        } else {
-            // --- Incorrect Match ---
-            cardA.classList.add('incorrect');
-            cardB.classList.add('incorrect');
-
-            setTimeout(() => {
-                cardA.classList.remove('incorrect');
-                cardB.classList.remove('incorrect');
-                resetMatchState();
-            }, 750);
-        }
-    }
-
-    /**
-     * Resets the match state after a pair is checked.
-     */
-    function resetMatchState() {
-        if (app.selectedMatchCard) {
-            app.selectedMatchCard.classList.remove('selected');
-        }
-        app.selectedMatchCard = null;
-        app.isMatching = false;
-    }
-
-    /**
-     * Checks if all cards on the board are matched, then starts new round.
-     */
-    function checkMatchRoundComplete() {
-        const allCards = dom.matchModeGame.querySelectorAll('.match-card');
-        const allMatched = [...allCards].every(card => card.classList.contains('matched'));
-
-        if (allMatched) {
-            // Round is over, render the next one (or complete screen)
-            setTimeout(renderMatchGame, 300); // Short delay for fade-out
-        }
+        // Start timer
+        app.matchStartTime = Date.now();
+        dom.matchTimer.textContent = '0.0s';
+        app.matchTimerInterval = setInterval(updateMatchTimer, 100);
     }
 
     /**
      * Updates the match timer display.
      */
     function updateMatchTimer() {
-        const elapsed = Math.floor((Date.now() - app.matchStartTime) / 1000);
-        const minutes = Math.floor(elapsed / 60);
-        const seconds = elapsed % 60;
-        dom.matchTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const elapsed = (Date.now() - app.matchStartTime) / 1000;
+        dom.matchTimer.textContent = `${elapsed.toFixed(1)}s`;
     }
+
+    /**
+     * Handles clicks within the match game area.
+     */
+    function handleMatchClick(e) {
+        const item = e.target.closest('.match-item');
+
+        // Ignore if already matched, during an incorrect-check, or not a match item
+        if (!item || item.classList.contains('correct') || app.isCheckingMatch) {
+            return;
+        }
+
+        const list = item.parentElement;
+
+        if (list.id === 'match-terms-list') {
+            // Clicked on a term
+            if (app.selectedTerm) {
+                app.selectedTerm.classList.remove('selected');
+            }
+            app.selectedTerm = item;
+            item.classList.add('selected');
+
+        } else if (list.id === 'match-defs-list') {
+            // Clicked on a definition
+            if (app.selectedDef) {
+                app.selectedDef.classList.remove('selected');
+            }
+            app.selectedDef = item;
+            item.classList.add('selected');
+        }
+
+        // If both a term and a definition are selected, check the match
+        if (app.selectedTerm && app.selectedDef) {
+            checkMatch();
+        }
+    }
+
+    /**
+     * Checks if the selected term and definition match.
+     */
+    function checkMatch() {
+        app.isCheckingMatch = true; // Lock clicking
+        const term = app.selectedTerm;
+        const def = app.selectedDef;
+        const cardId = term.dataset.id;
+
+        // Find the card in the session
+        const cardIndex = app.matchSessionCards.findIndex(c => c.id === cardId);
+        const card = cardIndex > -1 ? app.matchSessionCards[cardIndex] : null;
+
+        if (term.dataset.id === def.dataset.id) {
+            // --- CORRECT MATCH ---
+            term.classList.remove('selected');
+            def.classList.remove('selected');
+            term.classList.add('correct');
+            def.classList.add('correct');
+
+            app.matchItemsLeft--;
+            
+            if (card) {
+                updateCardProgress(card, true);
+                app.matchSessionCards.splice(cardIndex, 1); // Remove from session
+            }
+
+            // Check if round is complete
+            if (app.matchItemsLeft === 0) {
+                clearInterval(app.matchTimerInterval);
+                saveProgressToLocalStorage();
+                setTimeout(startMatchRound, 1000); // Start next round
+            }
+            
+            app.isCheckingMatch = false; // Unlock
+
+        } else {
+            // --- INCORRECT MATCH ---
+            term.classList.remove('selected');
+            def.classList.remove('selected');
+            term.classList.add('incorrect');
+            def.classList.add('incorrect');
+
+            if (card) {
+                updateCardProgress(card, false);
+                // Move card to the end of the session
+                app.matchSessionCards.push(app.matchSessionCards.splice(cardIndex, 1)[0]);
+            }
+            
+            saveProgressToLocalStorage();
+
+            // Reset after a delay
+            setTimeout(() => {
+                term.classList.remove('incorrect');
+                def.classList.remove('incorrect');
+                app.isCheckingMatch = false; // Unlock
+            }, MATCH_INCORRECT_DELAY);
+        }
+
+        // Reset selections
+        app.selectedTerm = null;
+        app.selectedDef = null;
+    }
+
+    // --- END MATCH MODE ---
 
 
     // --- CREATE DECK ---
@@ -1555,7 +1555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
-    // --- UTILITY FUNCTIONS ---
+    // --- NEW: UTILITY FUNCTIONS ---
     
     /**
      * Shuffles an array in place. (Fisher-Yates shuffle)
@@ -1664,6 +1664,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCardRowNumbers();
     }
 
+
     function handleDragEnd() {
         if (app.draggedItem) {
             app.draggedItem.classList.remove('dragging');
@@ -1686,4 +1687,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
