@@ -77,7 +77,7 @@ body {
 /* Allow selection on text inputs and content */
 input, textarea, [contenteditable="true"],
 #flashcard-front p, #flashcard-back p, #learn-term, .learn-option,
-.match-card { /* NEW: Allow selecting match card text */
+.match-item { /* NEW */
     user-select: text;
     -webkit-user-select: text;
     -moz-user-select: text;
@@ -254,9 +254,9 @@ body[data-mode="empty"] #empty-deck-view {
 #learn-mode-disabled,
 #learn-question-box,
 #learn-complete-view,
-#type-mode-disabled,
-#type-question-box,
-#type-complete-view,
+#type-mode-disabled, /* NEW */
+#type-question-box, /* NEW */
+#type-complete-view, /* NEW */
 #match-mode-disabled, /* NEW */
 #match-complete-view { /* NEW */
     background-color: var(--color-bg-secondary);
@@ -579,7 +579,7 @@ body.light-mode #flashcard-nav button:hover {
     color: var(--color-incorrect);
 }
 
-/* --- Type Mode --- */
+/* --- NEW: Type Mode --- */
 #type-question-box {
     border-radius: var(--border-radius-card);
 }
@@ -654,13 +654,12 @@ body.light-mode #flashcard-nav button:hover {
     color: var(--color-text-primary);
 }
 
-
 /* --- NEW: Match Mode --- */
 #match-timer {
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
 }
 
-.match-card {
+.match-item {
     background-color: var(--color-card-bg);
     border: 2px solid var(--color-border);
     border-radius: var(--border-radius-button);
@@ -669,62 +668,50 @@ body.light-mode #flashcard-nav button:hover {
     font-weight: 600;
     color: var(--color-text-primary);
     box-shadow: var(--shadow-sm);
-    min-height: 80px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    /* Ensure items can grow in height */
+    min-height: 70px;
     display: flex;
     align-items: center;
-    /* justify-content: center; */
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.2s ease;
 }
-
-.match-card:hover {
+.match-item:hover {
     border-color: var(--color-primary);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
     background-color: var(--color-bg-secondary);
 }
-
-.match-card.selected {
-    background-color: var(--color-primary-light);
+.match-item.selected {
     border-color: var(--color-primary);
+    background-color: var(--color-primary-light);
     color: var(--color-primary);
-    transform: scale(1.02);
+    font-weight: 700;
 }
-body.light-mode .match-card.selected {
+body.light-mode .match-item.selected {
     color: var(--color-primary);
 }
 
-.match-card.correct {
+.match-item.correct {
     background-color: var(--color-correct-light);
     border-color: var(--color-correct);
-    color: var(--color-correct) !important;
-    transform: scale(1.02);
-    transition: all 0.1s ease;
+    color: var(--color-correct);
+    font-weight: 700;
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: scale(0.98);
 }
-
-.match-card.incorrect {
+.match-item.incorrect {
     background-color: var(--color-incorrect-light);
     border-color: var(--color-incorrect);
-    color: var(--color-incorrect) !important;
-    transform: scale(1.02);
+    color: var(--color-incorrect);
+    font-weight: 700;
     animation: shake 0.5s ease;
-    transition: all 0.1s ease;
-}
-
-/* This class fades out and hides the matched cards */
-.match-card.matched {
-    opacity: 0;
-    visibility: hidden;
-    transform: scale(0.9);
-    transition: all 0.3s ease;
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0) scale(1.02); }
-    25% { transform: translateX(-5px) scale(1.02); }
-    50% { transform: translateX(5px) scale(1.02); }
-    75% { transform: translateX(-5px) scale(1.02); }
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
 }
 
 
@@ -732,8 +719,8 @@ body.light-mode .match-card.selected {
 #empty-deck-view p, 
 #learn-mode-disabled p, 
 #learn-complete-view p,
-#type-mode-disabled p,
-#type-complete-view p,
+#type-mode-disabled p, /* NEW */
+#type-complete-view p, /* NEW */
 #match-mode-disabled p, /* NEW */
 #match-complete-view p { /* NEW */
     color: var(--color-text-secondary);
@@ -869,4 +856,3 @@ body.light-mode .settings-toggle-button.active {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
-
