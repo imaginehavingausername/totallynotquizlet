@@ -205,12 +205,23 @@
                 </div>
             </div>
 
-            <!-- NEW: Match Mode View -->
+            <!-- MODIFIED: Match Mode View -->
             <div id="match-view" class="app-view">
                 <!-- Disabled state -->
                 <div id="match-mode-disabled" class="text-center p-8 md:p-12 rounded-lg hidden">
                     <h2 class="text-2xl font-semibold mb-4">Match Mode Needs More Cards</h2>
                     <p>This mode requires at least 2 cards in your deck. Please add more cards to get started.</p>
+                </div>
+                
+                <!-- NEW: Start Screen -->
+                <div id="match-start-screen" class="text-center p-8 md:p-12 rounded-lg hidden">
+                    <h2 class="text-2xl font-semibold mb-4">Ready to Match?</h2>
+                    <p class="mb-6">Click start to begin the timer. Match all the pairs as fast as you can!</p>
+                    <!-- NEW: Best Time Display -->
+                    <p id="match-best-time-display-start" class="text-lg text-center font-medium text-yellow-400 mb-6">Best: --</p>
+                    <button id="match-start-button" class="main-action-button font-medium py-3 px-6 rounded-lg">
+                        Start
+                    </button>
                 </div>
 
                 <!-- Game state -->
@@ -232,7 +243,9 @@
                 <!-- Complete state -->
                 <div id="match-complete-view" class="text-center p-8 md:p-12 rounded-lg hidden">
                     <h2 class="text-2xl font-semibold mb-4">You've matched them all!</h2>
-                    <p class="mb-8">Great job! You've completed this set.</p>
+                    <p class="mb-2">Great job! You've completed this set.</p>
+                    <!-- NEW: Best Time Display -->
+                    <p id="match-best-time-display-complete" class="text-lg text-center font-medium text-yellow-400 mb-6">Best: --</p>
                     <div class="flex flex-col md:flex-row gap-4 justify-center">
                         <button id="match-restart-button" class="main-action-button font-medium py-3 px-6 rounded-lg">
                             Play Again
