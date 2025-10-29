@@ -80,6 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
         learnTerm: document.getElementById('learn-term'),
         learnOptions: document.getElementById('learn-options'),
         learnFeedback: document.getElementById('learn-feedback'),
+        learnFeedbackMessage: document.getElementById('learn-feedback-message'), // NEW
+        learnContinueButton: document.getElementById('learn-continue-button'), // NEW
         learnCompleteView: document.getElementById('learn-complete-view'),
         learnRestartButton: document.getElementById('learn-restart-button'),
         // MODIFIED: Corrected the ID to match the HTML
@@ -100,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         typeFeedbackCorrectAnswer: document.getElementById('type-feedback-correct-answer'),
         typeOverrideWrongButton: document.getElementById('type-override-wrong-button'), // MODIFIED
         typeOverrideCorrectButton: document.getElementById('type-override-correct-button'), // NEW
+        typeContinueButton: document.getElementById('type-continue-button'), // NEW
         typeRestartButton: document.getElementById('type-restart-button'),
         typeSwitchModeButton: document.getElementById('type-switch-mode-button'),
 
@@ -152,9 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const INCORRECT_INTERVAL = 60 * 1000; // 1 minute
     const TYPE_CLOSE_THRESHOLD = 2; // NEW: Max Levenshtein distance for "close"
-    const TYPE_CORRECT_DELAY = 1500; // NEW
-    const TYPE_INCORRECT_DELAY = 3000; // NEW
-    const TYPE_CLOSE_DELAY = 4000; // NEW
+    // MODIFIED: Removed delays, as they are now user-controlled
     const MATCH_INCORRECT_DELAY = 1000; // NEW: Delay for match mode
     const MATCH_ROUND_SIZE = 10; // NEW: Max cards per match round
 
@@ -516,6 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.flashcardContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
         dom.flashcardContainer.addEventListener('touchmove', handleTouchMove, { passive: true });
         dom.flashcardContainer.addEventListener('touchend', handleTouchEnd);
+        
+        // NEW: Global keydown listener for spacebar
+        document.addEventListener('keydown', handleGlobalKeydown);
 
         // Create deck controls (MODIFIED)
         dom.parseDeckButton.addEventListener('click', parseAndLoadDeck);
@@ -569,6 +573,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // MODIFIED: Changed to 'match'
             dom.learnSwitchModeButton.addEventListener('click', () => setMode('match'));
         }
+        
+        // NEW: Continue button listener
+        if (dom.learnContinueButton) {
+            dom.learnContinueButton.addEventListener('click', renderLearnQuestion);
+        }
 
         // NEW: Type Mode Listeners
         // MODIFIED: Added checks for null to prevent script crash
@@ -591,6 +600,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // MODIFIED: Changed to 'flashcards'
             dom.typeSwitchModeButton.addEventListener('click', () => setMode('flashcards'));
         }
+        
+        // NEW: Continue button listener
+        if (dom.typeContinueButton) {
+            dom.typeContinueButton.addEventListener('click', renderTypeQuestion);
+        }
 
         // NEW: Match Mode Listeners
         if (dom.matchRestartButton) {
@@ -603,6 +617,34 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.matchGameArea.addEventListener('click', handleMatchClick);
         }
     }
+
+    /**
+     * NEW: Handles global keydown events for shortcuts.
+     */
+    function handleGlobalKeydown(e) {
+        // Don't interfere with typing in inputs
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        if (e.code === 'Space') {
+            e.preventDefault(); // Stop page from scrolling
+
+            if (app.currentMode === 'flashcards') {
+                // Flip flashcard
+                if (!app.isAnimating) {
+                    dom.flashcardContainer.classList.toggle('is-flipped');
+                }
+            } else if (app.currentMode === 'learn' && !dom.learnContinueButton.classList.contains('hidden')) {
+                // Advance in Learn mode if continue button is visible
+                renderLearnQuestion();
+            } else if (app.currentMode === 'type' && !dom.typeContinueButton.classList.contains('hidden')) {
+                // Advance in Type mode if continue button is visible
+                renderTypeQuestion();
+            }
+        }
+    }
+
 
     // --- NEW: About Modal Functions ---
     function showAboutModal() {
@@ -879,6 +921,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function renderLearnQuestion() {
+        // NEW: Hide continue button
+        dom.learnContinueButton.classList.add('hidden');
+        
         // NEW: Check for completion
         if (app.learnSessionCards.length === 0) {
             dom.learnModeQuiz.classList.add('hidden');
@@ -984,14 +1029,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedAnswer === correctAnswer) {
             app.learnSessionCards.shift(); // NEW: Remove correct card from session
             updateCardProgress(app.currentLearnCard, true); // MODIFIED
-            dom.learnFeedback.textContent = "Correct!";
+            dom.learnFeedbackMessage.textContent = "Correct!";
             dom.learnFeedback.classList.add('correct');
             dom.learnFeedback.classList.remove('incorrect');
         } else {
             app.learnSessionCards.push(app.learnSessionCards.shift()); // NEW: Move incorrect card to back
             updateCardProgress(app.currentLearnCard, false); // MODIFIED
             // MODIFIED: Show the correct answer in the feedback
-            dom.learnFeedback.textContent = "Incorrect. The correct answer is: " + correctAnswer;
+            dom.learnFeedbackMessage.textContent = "Incorrect. The correct answer is: " + correctAnswer;
             dom.learnFeedback.classList.add('incorrect');
             dom.learnFeedback.classList.remove('correct');
         }
@@ -1000,9 +1045,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // a reference to the *same object* in app.currentDeck.cards,
         // so progress updates correctly.
         dom.learnFeedback.classList.remove('hidden');
+        dom.learnContinueButton.classList.remove('hidden'); // NEW: Show continue button
 
         saveProgressToLocalStorage();
-        setTimeout(renderLearnQuestion, 2000);
+        // MODIFIED: Removed setTimeout to wait for user input
+        // setTimeout(renderLearnQuestion, 2000);
     }
 
     // --- NEW: TYPE MODE ---
@@ -1027,6 +1074,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * Renders the next "Type" question.
      */
     function renderTypeQuestion() {
+        // NEW: Hide continue button
+        dom.typeContinueButton.classList.add('hidden');
+        
         // Check for completion
         if (app.typeSessionCards.length === 0) {
             dom.typeModeQuiz.classList.add('hidden');
@@ -1050,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.typeInputArea.value = '';
         dom.typeInputArea.disabled = false;
         dom.typeSubmitButton.disabled = false;
+        dom.typeInputArea.focus(); // NEW: Focus input
         dom.typeFeedback.classList.add('hidden');
         dom.typeFeedback.classList.remove('correct', 'incorrect', 'close'); // <-- THE FIX
         
@@ -1085,8 +1136,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.typeOverrideWrongButton.classList.add('hidden'); // MODIFIED
         dom.typeOverrideCorrectButton.classList.add('hidden'); // NEW
 
-        let nextQuestionDelay = TYPE_INCORRECT_DELAY;
-
         if (distance === 0) {
             // --- Perfect Match ---
             dom.typeFeedback.classList.add('correct');
@@ -1095,7 +1144,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             updateCardProgress(app.currentTypeCard, true);
             app.typeSessionCards.shift(); // Remove from session
-            nextQuestionDelay = TYPE_CORRECT_DELAY;
 
         } else if (distance <= TYPE_CLOSE_THRESHOLD) {
             // --- Close Match ---
@@ -1107,7 +1155,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Assume correct, but cache the card in case of override
             updateCardProgress(app.currentTypeCard, true);
             app.lastTypeCard = app.typeSessionCards.shift(); // Remove and store
-            nextQuestionDelay = TYPE_CLOSE_DELAY;
 
         } else {
             // --- Incorrect Match ---
@@ -1120,13 +1167,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // MODIFIED: Store card *before* moving it
             app.lastTypeCard = app.typeSessionCards.shift(); // Remove and store
             app.typeSessionCards.push(app.lastTypeCard); // Move to back
-            
-            // THE FIX: Changed DELLAY (2 L's) back to DELAY (1 L)
-            nextQuestionDelay = TYPE_INCORRECT_DELAY;
         }
 
         saveProgressToLocalStorage();
-        setTimeout(renderTypeQuestion, nextQuestionDelay);
+        
+        // MODIFIED: Show continue button instead of using timeout
+        dom.typeContinueButton.classList.remove('hidden');
+        // setTimeout(renderTypeQuestion, nextQuestionDelay);
     }
 
     /**
