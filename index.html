@@ -138,7 +138,11 @@
                     </div>
                     <div id="learn-options" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     </div>
-                    <div id="learn-feedback" class="mt-6 p-4 rounded-lg text-center font-medium hidden"></div>
+                    <!-- MODIFIED: Added continue button -->
+                    <div id="learn-feedback" class="mt-6 p-4 rounded-lg text-center font-medium hidden">
+                        <span id="learn-feedback-message"></span>
+                        <button id="learn-continue-button" class="continue-button hidden">Continue</button>
+                    </div>
                 </div>
                 <div id="learn-complete-view" class="text-center p-8 md:p-12 rounded-lg hidden">
                     <h2 class="text-2xl font-semibold mb-4">You've mastered this round!</h2>
@@ -178,6 +182,7 @@
                         </div>
                     </form>
 
+                    <!-- MODIFIED: Added continue button -->
                     <div id="type-feedback" class="mt-4 p-4 rounded-lg text-center font-medium hidden">
                         <p id="type-feedback-message" class="text-lg"></p>
                         <p id="type-feedback-correct-answer" class="mt-2"></p>
@@ -189,6 +194,8 @@
                         <button id="type-override-correct-button" class="type-override-button hidden">
                             I got it correct
                         </button>
+                        <!-- NEW: Continue button -->
+                        <button id="type-continue-button" class="continue-button hidden">Continue</button>
                     </div>
                 </div>
 
