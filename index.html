@@ -26,7 +26,7 @@
         <!-- NEW: Settings Button -->
         <button id="settings-button" class="absolute top-6 left-6 md:top-8 md:left-10 z-50 p-2 rounded-full transition-all duration-300 hidden">
             <!-- Settings Icon -->
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0 3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
         </button>
 
         <!-- Theme Toggle Button -->
@@ -41,12 +41,12 @@
         <header class="mb-6 pt-12">
             <!-- MODIFIED: Added id="header-title" -->
             <h1 id="header-title" class="text-3xl text-center mb-6">Totally Not Quizlet</h1>
-            <!-- MODIFIED: Added "Match" button -->
+            <!-- MODIFIED: Reordered "Match" and "Type" buttons -->
             <nav class="flex justify-center p-2 space-x-1 md:space-x-2">
                 <button data-mode="flashcards" class="nav-button flex-1 rounded-md">Flashcards</button>
                 <button data-mode="learn" class="nav-button flex-1 rounded-md">Learn</button>
-                <button data-mode="type" class="nav-button flex-1 rounded-md">Type</button>
-                <button data-mode="match" class="nav-button flex-1 rounded-md">Match</button> <!-- NEW -->
+                <button data-mode="match" class="nav-button flex-1 rounded-md">Match</button> <!-- MOVED -->
+                <button data-mode="type" class="nav-button flex-1 rounded-md">Type</button> <!-- MOVED -->
                 <button data-mode="create" class="nav-button flex-1 rounded-md">Create</button>
                 <button id="share-deck-button" class="flex-1 rounded-md hidden">Share Deck</button>
             </nav>
@@ -217,8 +217,7 @@
                 <div id="match-start-screen" class="text-center p-8 md:p-12 rounded-lg hidden">
                     <h2 class="text-2xl font-semibold mb-4">Ready to Match?</h2>
                     <p class="mb-6">Click start to begin the timer. Match all the pairs as fast as you can!</p>
-                    <!-- NEW: Best Time Display -->
-                    <p id="match-best-time-display-start" class="text-lg text-center font-medium text-yellow-400 mb-6">Best: --</p>
+                    <!-- REMOVED: Best Time Display from start screen -->
                     <button id="match-start-button" class="main-action-button font-medium py-3 px-6 rounded-lg">
                         Start
                     </button>
@@ -226,9 +225,15 @@
 
                 <!-- Game state -->
                 <div id="match-mode-game" class="hidden">
+                    <!-- MODIFIED: Header to include best time -->
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-bold">Match the pairs!</h2>
-                        <div id="match-timer" class="text-2xl font-bold">0.0s</div>
+                        <!-- NEW: Wrapper for timers -->
+                        <div class="flex flex-col items-end">
+                            <div id="match-timer" class="text-2xl font-bold">0.0s</div>
+                            <!-- NEW: Best time display during game -->
+                            <div id="match-best-time-display-game" class="text-sm font-medium text-yellow-400 opacity-75">Best: --</div>
+                        </div>
                     </div>
                     <div id="match-game-area" class="grid grid-cols-2 gap-4">
                         <div id="match-terms-list" class="space-y-3">
@@ -342,3 +347,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
