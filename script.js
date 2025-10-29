@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         matchTermsList: document.getElementById('match-terms-list'),
         matchDefsList: document.getElementById('match-defs-list'),
         matchRestartButton: document.getElementById('match-restart-button'),
-        matchBestTimeDisplayStart: document.getElementById('match-best-time-display-start'), // NEW
+        matchBestTimeDisplayGame: document.getElementById('match-best-time-display-game'), // NEW
         matchBestTimeDisplayComplete: document.getElementById('match-best-time-display-complete'), // NEW
 
         // Other
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bestTime !== Infinity && bestTime > 0) {
             timeText = `Best: ${(bestTime / 1000).toFixed(1)}s`;
         }
-        if (dom.matchBestTimeDisplayStart) dom.matchBestTimeDisplayStart.textContent = timeText;
+        if (dom.matchBestTimeDisplayGame) dom.matchBestTimeDisplayGame.textContent = timeText; // NEW
         if (dom.matchBestTimeDisplayComplete) dom.matchBestTimeDisplayComplete.textContent = timeText;
     }
     // --- End Best Time Storage ---
@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateURLHash(); // Save change
     }
 
-    function handleShuffleSettingChange() {
+function handleShuffleSettingChange() {
         app.currentDeck.settings.shuffle = !app.currentDeck.settings.shuffle;
         updateSettingsToggle(dom.settingToggleShuffle, app.currentDeck.settings.shuffle, "Shuffle");
         updateURLHash();
@@ -1206,6 +1206,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.matchStartScreen.classList.add('hidden');
         dom.matchCompleteView.classList.add('hidden');
         dom.matchModeGame.classList.remove('hidden');
+
+        updateBestTimeDisplay(); // NEW: Ensure best time is shown on game screen
 
         // Prepare session list
         app.matchSessionCards = [...app.studyDeck]; 
@@ -1768,3 +1770,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
