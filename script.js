@@ -566,7 +566,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.learnRestartButton.addEventListener('click', startLearnMode);
         }
         if (dom.learnSwitchModeButton) {
-            dom.learnSwitchModeButton.addEventListener('click', () => setMode('type'));
+            // MODIFIED: Changed to 'match'
+            dom.learnSwitchModeButton.addEventListener('click', () => setMode('match'));
         }
 
         // NEW: Type Mode Listeners
@@ -587,7 +588,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.typeRestartButton.addEventListener('click', startTypeMode);
         }
         if (dom.typeSwitchModeButton) {
-            dom.typeSwitchModeButton.addEventListener('click', () => setMode('learn'));
+            // MODIFIED: Changed to 'flashcards'
+            dom.typeSwitchModeButton.addEventListener('click', () => setMode('flashcards'));
         }
 
         // NEW: Match Mode Listeners
