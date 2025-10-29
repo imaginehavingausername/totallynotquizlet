@@ -29,10 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
         matchItemsLeft: 0,
         isCheckingMatch: false, // Prevents double-clicks
         matchBestTime: Infinity, // NEW: For best time
+        currentDeckHash: '', // NEW: To store the hash for the current deck
 
         progressData: new Map(), // Stores progress keyed by 'term|definition'
         localStorageKey: 'flashcardAppProgress',
-        matchStorageKey: 'flashcardAppBestTime', // NEW: For best time
+        matchStorageKeyPrefix: 'flashcardAppBestTime_', // MODIFIED: Prefix for deck-specific keys
         themeKey: 'flashcardAppTheme',
         toastTimeout: null,
         isAnimating: false,
@@ -158,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TYPE_CLOSE_DELAY = 4000; // NEW
     const MATCH_INCORRECT_DELAY = 1000; // NEW: Delay for match mode
     const MATCH_ROUND_SIZE = 10; // NEW: Max cards per match round
+    const DEFAULT_MATCH_KEY_SUFFIX = 'default'; // NEW: Suffix for decks without a hash
 
     // --- CORE LOGIC ---
 
@@ -167,8 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         loadTheme(); // NEW: Load theme first
         loadProgressFromLocalStorage();
-        loadBestTime(); // NEW: Load best time
-        loadDeckFromURL();
+        loadDeckFromURL(); // This sets app.currentDeckHash
+        loadBestTime(); // Load best time *after* deck is loaded
         addEventListeners();
         
         // MODIFIED: Check cards array length and show/hide buttons
@@ -263,15 +265,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- NEW: Best Time Storage ---
+    // --- MODIFIED: Best Time Storage ---
     /**
-     * Loads the best match time from localStorage.
+     * Gets the deck-specific key for storing best time.
+     * Uses the URL hash or a default suffix.
+     * @returns {string} The storage key.
+     */
+    function getDeckSpecificMatchKey() {
+        const hashSuffix = app.currentDeckHash ? app.currentDeckHash : DEFAULT_MATCH_KEY_SUFFIX;
+        return `${app.matchStorageKeyPrefix}${hashSuffix}`;
+    }
+
+    /**
+     * Loads the best match time from localStorage for the current deck.
      */
     function loadBestTime() {
+        const deckKey = getDeckSpecificMatchKey(); // Get deck-specific key
         try {
-            const storedTime = localStorage.getItem(app.matchStorageKey);
+            const storedTime = localStorage.getItem(deckKey); // Use deck-specific key
             if (storedTime) {
                 app.matchBestTime = parseFloat(storedTime);
+            } else {
+                app.matchBestTime = Infinity; // Reset if no time found for this deck
             }
             updateBestTimeDisplay();
         } catch (error) {
@@ -281,18 +296,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Saves the best match time to localStorage.
+     * Saves the best match time to localStorage for the current deck.
      */
     function saveBestTime() {
+        const deckKey = getDeckSpecificMatchKey(); // Get deck-specific key
         try {
-            localStorage.setItem(app.matchStorageKey, app.matchBestTime.toString());
+            if (app.matchBestTime !== Infinity) {
+                localStorage.setItem(deckKey, app.matchBestTime.toString()); // Use deck-specific key
+            }
         } catch (error) {
             console.error("Error saving best time:", error);
         }
     }
 
     /**
-     * Updates the "Best Time" text on the start and complete screens.
+     * Updates the "Best Time" text on the game and complete screens.
      */
     function updateBestTimeDisplay() {
         const bestTime = app.matchBestTime;
@@ -300,27 +318,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bestTime !== Infinity && bestTime > 0) {
             timeText = `Best: ${(bestTime / 1000).toFixed(1)}s`;
         }
-        if (dom.matchBestTimeDisplayGame) dom.matchBestTimeDisplayGame.textContent = timeText; // NEW
-        if (dom.matchBestTimeDisplayComplete) dom.matchBestTimeDisplayComplete.textContent = timeText;
+        if (dom.matchBestTimeDisplayGame) dom.matchBestTimeDisplayGame.textContent = timeText; // Update game screen
+        if (dom.matchBestTimeDisplayComplete) dom.matchBestTimeDisplayComplete.textContent = timeText; // Update complete screen
     }
     // --- End Best Time Storage ---
 
 
     /**
      * Loads a deck from the URL hash. If no hash, loads a default deck.
+     * Also sets app.currentDeckHash.
      */
     function loadDeckFromURL() {
         // MODIFIED: rawDeck is now an object
         let rawDeck = getDefaultDeck();
         let hash = window.location.hash.substring(1); // <-- Get hash as 'let'
         const defaultSettings = { shuffle: false, termFirst: true };
+        
+        app.currentDeckHash = ''; // Reset hash initially
 
         if (hash) {
-            
             // --- FIX FOR MOBILE SHARING ---
-            // Mobile apps often replace '+' with ' ' in URLs. We must change them back.
             hash = hash.replace(/ /g, '+');
             // --- END FIX ---
+            
+            app.currentDeckHash = hash; // Store the cleaned hash
 
             try {
                 const jsonString = atob(hash); // Decode the *fixed* hash
@@ -342,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("Error parsing deck from hash:", error);
                 rawDeck = getDefaultDeck();
                 window.location.hash = ''; // Clear invalid hash
+                app.currentDeckHash = ''; // Clear hash state on error
             }
         }
 
@@ -503,11 +525,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 dom.matchCompleteView.classList.add('hidden');
                 
                 // Prepare the session if it's not already prepared
+                // Also load the correct best time for this deck
                 if (app.matchSessionCards.length === 0 || previousMode !== 'match') {
                     app.matchSessionCards = [...app.studyDeck];
                     shuffleArray(app.matchSessionCards);
+                    loadBestTime(); // Load best time when switching to match mode
+                } else {
+                    updateBestTimeDisplay(); // Ensure display is up-to-date if returning
                 }
-                updateBestTimeDisplay(); // Show the best time
             }
         }
     }
@@ -616,7 +641,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.matchStartButton.addEventListener('click', startMatchMode);
         }
         if (dom.matchRestartButton) {
-            dom.matchRestartButton.addEventListener('click', startMatchMode);
+            // MODIFIED: Reset to start screen, not directly into game
+            dom.matchRestartButton.addEventListener('click', () => setMode('match')); 
         }
         if (dom.matchGameArea) {
             dom.matchGameArea.addEventListener('click', handleMatchClick);
@@ -1241,13 +1267,15 @@ function handleShuffleSettingChange() {
             // --- SESSION COMPLETE ---
             clearInterval(app.matchTimerInterval); // Stop timer
             app.matchTimerInterval = null;
-
-            const finalTime = Date.now() - app.matchStartTime;
+            
+            // Only calculate final time if the timer was actually running
+            const finalTime = app.matchStartTime ? (Date.now() - app.matchStartTime) : Infinity; 
+            app.matchStartTime = 0; // Reset start time
 
             // Check and save best time
             if (finalTime < app.matchBestTime) {
                 app.matchBestTime = finalTime;
-                saveBestTime();
+                saveBestTime(); // Save using the deck-specific key
                 showToast(`New best time: ${(finalTime / 1000).toFixed(1)}s!`);
             }
             updateBestTimeDisplay(); // Update display on complete screen
@@ -1700,6 +1728,11 @@ function handleShuffleSettingChange() {
             const base64String = btoa(jsonString);
             // Use history.replaceState to avoid adding to browser history
             history.replaceState(null, '', `#${base64String}`);
+
+            // Update the deck hash state and reload best time for the potentially new deck
+            app.currentDeckHash = base64String;
+            loadBestTime();
+
         } catch (error) {
             console.error("Error updating hash:", error);
             showToast("Error saving settings.");
