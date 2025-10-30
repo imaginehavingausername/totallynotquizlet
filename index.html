@@ -133,6 +133,10 @@
                     <p>Learn mode requires at least 4 cards to generate quizzes. Please add more cards to your deck.</p>
                 </div>
                 <div id="learn-mode-quiz" class="hidden">
+                    <!-- NEW: Progress Bar -->
+                    <div class="progress-bar-container mb-4">
+                        <div id="learn-progress-bar" class="progress-bar-inner"></div>
+                    </div>
                     <div id="learn-question-box" class="p-6 rounded-2xl mb-6 min-h-[150px] flex items-center justify-center">
                         <p id="learn-term" class="text-3xl font-medium text-center"></p>
                     </div>
@@ -171,6 +175,10 @@
 
                 <!-- Quiz state -->
                 <div id="type-mode-quiz" class="hidden space-y-6">
+                    <!-- NEW: Progress Bar -->
+                    <div class="progress-bar-container mb-4">
+                        <div id="type-progress-bar" class="progress-bar-inner"></div>
+                    </div>
                     <div id="type-question-box" class="p-6 rounded-2xl min-h-[150px] flex items-center justify-center">
                         <p id="type-question-term" class="text-3xl font-medium text-center"></p>
                     </div>
