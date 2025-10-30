@@ -235,11 +235,11 @@ body.light-mode #share-deck-button:hover {
     display: none;
 }
 body[data-mode="create"] #create-view,
-body[data-all-cards] #flashcards-view,
-body[data-all-cards="learn"] #learn-view,
-body[data-all-cards="type"] #type-view,
-body[data-all-cards="match"] #match-view, /* NEW */
-body[data-all-cards="empty"] #empty-deck-view {
+body[data-mode="flashcards"] #flashcards-view,
+body[data-mode="learn"] #learn-view,
+body[data-mode="type"] #type-view,
+body[data-mode="match"] #match-view, /* NEW */
+body[data-mode="empty"] #empty-deck-view {
     display: block;
     animation: fadeIn 0.3s ease;
 }
@@ -901,3 +901,4 @@ body.light-mode .settings-toggle-button.active {
   The 'hidden' class from Tailwind will now work as expected 
   (which is fine, as we removed it from the main app-views).
 */
+
