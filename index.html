@@ -138,9 +138,11 @@
                     </div>
                     <div id="learn-options" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     </div>
-                    <!-- MODIFIED: Added continue button -->
-                    <div id="learn-feedback" class="mt-6 p-4 rounded-lg text-center font-medium hidden">
-                        <span id="learn-feedback-message"></span>
+                    <!-- MODIFIED: Re-structured feedback and continue button -->
+                    <div id="learn-feedback-container" class="mt-6 flex gap-4 hidden">
+                        <div id="learn-feedback" class="flex-grow p-4 rounded-lg text-center font-medium">
+                            <span id="learn-feedback-message"></span>
+                        </div>
                         <button id="learn-continue-button" class="continue-button hidden">Continue</button>
                     </div>
                 </div>
@@ -182,19 +184,20 @@
                         </div>
                     </form>
 
-                    <!-- MODIFIED: Added continue button -->
-                    <div id="type-feedback" class="mt-4 p-4 rounded-lg text-center font-medium hidden">
-                        <p id="type-feedback-message" class="text-lg"></p>
-                        <p id="type-feedback-correct-answer" class="mt-2"></p>
-                        <!-- MODIFIED: Renamed ID and added class -->
-                        <button id="type-override-wrong-button" class="type-override-button hidden">
-                            I got it wrong
-                        </button>
-                        <!-- NEW: "I got it correct" button -->
-                        <button id="type-override-correct-button" class="type-override-button hidden">
-                            I got it correct
-                        </button>
-                        <!-- NEW: Continue button -->
+                    <!-- MODIFIED: Re-structured feedback and continue button -->
+                    <div id="type-feedback-container" class="mt-4 flex gap-4 hidden">
+                        <div id="type-feedback" class="flex-grow p-4 rounded-lg text-center font-medium">
+                            <p id="type-feedback-message" class="text-lg"></p>
+                            <p id="type-feedback-correct-answer" class="mt-2"></p>
+                            <!-- MODIFIED: Renamed ID and added class -->
+                            <button id="type-override-wrong-button" class="type-override-button hidden">
+                                I got it wrong
+                            </button>
+                            <!-- NEW: "I got it correct" button -->
+                            <button id="type-override-correct-button" class="type-override-button hidden">
+                                I got it correct
+                            </button>
+                        </div>
                         <button id="type-continue-button" class="continue-button hidden">Continue</button>
                     </div>
                 </div>
