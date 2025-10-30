@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         learnFeedback: document.getElementById('learn-feedback'),
         learnFeedbackMessage: document.getElementById('learn-feedback-message'), // NEW
         learnContinueButton: document.getElementById('learn-continue-button'), // NEW
-        learnProgressBar: document.getElementById('learn-progress-bar'), // NEW
         learnCompleteView: document.getElementById('learn-complete-view'),
         learnRestartButton: document.getElementById('learn-restart-button'),
         // MODIFIED: Corrected the ID to match the HTML
@@ -107,7 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         typeOverrideWrongButton: document.getElementById('type-override-wrong-button'), // MODIFIED
         typeOverrideCorrectButton: document.getElementById('type-override-correct-button'), // NEW
         typeContinueButton: document.getElementById('type-continue-button'), // NEW
-        typeProgressBar: document.getElementById('type-progress-bar'), // NEW
         typeRestartButton: document.getElementById('type-restart-button'),
         typeSwitchModeButton: document.getElementById('type-switch-mode-button'),
 
@@ -160,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const INCORRECT_INTERVAL = 60 * 1000; // 1 minute
     const TYPE_CLOSE_THRESHOLD = 2; // NEW: Max Levenshtein distance for "close"
-    const CORRECT_ANSWER_DELAY = 1000; // MODIFIED: Was 2000. Changed to 1 second.
+    const CORRECT_ANSWER_DELAY = 1000; // NEW: 1 second delay for auto-advance
     const MATCH_INCORRECT_DELAY = 1000; // NEW: Delay for match mode
     const MATCH_ROUND_SIZE = 10; // NEW: Max cards per match round
 
@@ -940,8 +938,6 @@ document.addEventListener('DOMContentLoaded', () => {
         app.learnSessionCards = [...app.studyDeck]; // NEW: Create session list
         shuffleArray(app.learnSessionCards); // NEW: Shuffle session list
         
-        dom.learnProgressBar.style.width = '0%'; // Reset progress bar
-        
         renderLearnQuestion();
     }
 
@@ -952,16 +948,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (app.correctAnswerTimeout) {
             clearTimeout(app.correctAnswerTimeout);
             app.correctAnswerTimeout = null;
-        }
-
-        // NEW: Update Progress Bar
-        if (app.studyDeck.length > 0) {
-            const total = app.studyDeck.length;
-            const completed = total - app.learnSessionCards.length;
-            const percent = (completed / total) * 100;
-            dom.learnProgressBar.style.width = `${percent}%`;
-        } else {
-            dom.learnProgressBar.style.width = '0%';
         }
 
         // NEW: Hide continue button
@@ -1119,8 +1105,6 @@ document.addEventListener('DOMContentLoaded', () => {
         app.typeSessionCards = [...app.studyDeck]; // Create session list
         shuffleArray(app.typeSessionCards); // Shuffle session list
         
-        dom.typeProgressBar.style.width = '0%'; // Reset progress bar
-        
         renderTypeQuestion();
     }
 
@@ -1132,16 +1116,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (app.correctAnswerTimeout) {
             clearTimeout(app.correctAnswerTimeout);
             app.correctAnswerTimeout = null;
-        }
-
-        // NEW: Update Progress Bar
-        if (app.studyDeck.length > 0) {
-            const total = app.studyDeck.length;
-            const completed = total - app.typeSessionCards.length;
-            const percent = (completed / total) * 100;
-            dom.typeProgressBar.style.width = `${percent}%`;
-        } else {
-            dom.typeProgressBar.style.width = '0%';
         }
 
         // NEW: Hide continue button
