@@ -863,9 +863,13 @@ body.light-mode .settings-toggle-button.active {
     border: none;
     border-radius: var(--border-radius-button);
     padding: 0.5rem 1rem;
-    margin-top: 1rem; /* Space from feedback text */
+    /* margin-top: 1rem; */ /* MODIFIED: Removed margin */
     cursor: pointer;
     transition: background-color 0.2s ease;
+    /* NEW: Center text in flex container */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .continue-button:hover {
     background-color: var(--color-primary-dark);
