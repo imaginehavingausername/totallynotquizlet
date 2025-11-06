@@ -43,7 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
         touchStartX: 0,
         touchStartY: 0,
         touchEndX: 0,
-        touchEndY: 0
+        touchEndY: 0,
+        settingsBeforeEdit: null, // NEW: To track changes in settings modal
     };
 
     // --- DOM ELEMENTS ---
@@ -243,8 +244,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const storedProgress = localStorage.getItem(app.localStorageKey);
             if (storedProgress) {
-                const parsed = JSON.parse(storedProgress);
-                app.progressData = new Map(Object.entries(parsed));
+                // MODIFICATION: Handle both Map and Object storage formats for safety
+                let parsed;
+                if (storedProgress.startsWith('[[')) { // Check if it looks like a Map string
+                    parsed = JSON.parse(storedProgress);
+                    app.progressData = new Map(parsed);
+                } else { // Assume old object format
+                    parsed = JSON.parse(storedProgress);
+                    app.progressData = new Map(Object.entries(parsed));
+                }
             }
         } catch (error) {
             console.error("Error loading progress from localStorage:", error);
@@ -274,8 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function saveProgressToLocalStorage() {
         try {
+            // We store progress on the main deck cards.
+            // When saving, we convert only the progress part to an object for storage.
             const progressToSave = {};
-            // MODIFIED: Loop over cards array
             for (const card of app.currentDeck.cards) {
                 const key = `${card.term}|${card.definition}`;
                 progressToSave[key] = {
@@ -354,7 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastReviewed: 0,
                 nextReview: 0
             };
-            return { ...defaultState, ...storedProgress };
+            // Apply stored progress if it exists
+            return { ...defaultState, ...(storedProgress || {}) };
         });
 
         app.currentDeck = {
@@ -714,25 +724,36 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSettingsToggle(dom.settingToggleShuffle, app.currentDeck.settings.shuffle, "Shuffle");
         updateSettingsToggle(dom.settingToggleStartWith, app.currentDeck.settings.termFirst, "Term", "Definition");
         
+        // NEW: Store settings to check for changes
+        app.settingsBeforeEdit = {
+            shuffle: app.currentDeck.settings.shuffle,
+            termFirst: app.currentDeck.settings.termFirst
+        };
+
         dom.settingsModalOverlay.classList.add('visible');
     }
 
     function hideSettingsModal() {
         dom.settingsModalOverlay.classList.remove('visible');
         
-        // NEW: Force-reset the learn session so new settings (like shuffle) apply
-        if (app.currentMode === 'learn') {
-            app.learnSessionCards = []; 
-        }
-        // NEW: Force-reset match session
-        if (app.currentMode === 'match') {
-            app.matchSessionCards = [];
-        }
+        // Check if settings that affect study order have changed
+        const settingsChanged = app.settingsBeforeEdit && 
+            (app.settingsBeforeEdit.shuffle !== app.currentDeck.settings.shuffle || 
+             app.settingsBeforeEdit.termFirst !== app.currentDeck.settings.termFirst);
 
-        // If mode is flashcards or learn, reset the view to apply changes
-        if (app.currentMode === 'flashcards' || app.currentMode === 'learn' || app.currentMode === 'match') {
-            setMode(app.currentMode);
+        if (settingsChanged) {
+            // Reset sessions
+            app.learnSessionCards = []; 
+            app.typeSessionCards = []; // Also reset type session
+            app.matchSessionCards = [];
+
+            // If in an affected mode, reload it to apply changes
+            if (app.currentMode === 'flashcards' || app.currentMode === 'learn' || app.currentMode === 'type' || app.currentMode === 'match') {
+                setMode(app.currentMode);
+            }
         }
+        
+        app.settingsBeforeEdit = null; // Clear stored settings
     }
 
     function handleTitleSettingChange() {
@@ -789,6 +810,14 @@ document.addEventListener('DOMContentLoaded', () => {
             card.nextReview = now + INCORRECT_INTERVAL;
         }
         
+        // Find the card in the *main* deck and update it, ensuring progress persists
+        const mainDeckCard = app.currentDeck.cards.find(c => c.id === card.id);
+        if (mainDeckCard) {
+            mainDeckCard.score = card.score;
+            mainDeckCard.lastReviewed = card.lastReviewed;
+            mainDeckCard.nextReview = card.nextReview;
+        }
+
         // Note: This function doesn't save, as it's often called in a batch.
         // The calling function (e.g., handleLearnAnswer) should save.
     }
@@ -1048,8 +1077,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * *** MODIFIED: This function now prioritizes distractors that are
-     * *** textually similar to the correct answer using Levenshtein distance.
+     * *** MODIFIED: This function now selects 3 fully random distractors
+     * *** and shuffles the final positions.
      */
     function generateQuizOptions(correctCard) {
         const options = new Set();
@@ -1057,51 +1086,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const correctOption = app.currentDeck.settings.termFirst ? correctCard.definition : correctCard.term;
         options.add(correctOption);
 
-        // Get all other cards
+        // Get all other cards and shuffle them
         const distractorPool = app.studyDeck.filter(card => card.id !== correctCard.id);
-        
-        // --- START OF NEW SIMILARITY LOGIC ---
-        
-        // 1. Calculate Levenshtein distance for all potential distractors
-        const weightedDistractors = distractorPool.map(card => {
-            const distractorOption = app.currentDeck.settings.termFirst ? card.definition : card.term;
-            const distance = levenshteinDistance(correctOption.toLowerCase(), distractorOption.toLowerCase());
-            return { option: distractorOption, distance: distance };
-        })
-        // 2. Filter out exact matches to the correct answer (distance === 0)
-        .filter(distractor => distractor.distance > 0)
-        // 3. Sort by similarity (lowest distance first)
-        .sort((a, b) => a.distance - b.distance);
+        shuffleArray(distractorPool); 
 
-        // 4. Add the most similar (but not identical) options
-        for (const distractor of weightedDistractors) {
+        // Add random distractors until we have 4 options
+        for (const card of distractorPool) {
             if (options.size < 4) {
-                options.add(distractor.option);
+                const distractorOption = app.currentDeck.settings.termFirst ? card.definition : card.term;
+                // .add() automatically handles duplicates, so this is safe
+                // (e.g., if two cards have the same definition)
+                options.add(distractorOption);
             } else {
                 break;
             }
         }
         
-        // --- END OF NEW SIMILARITY LOGIC ---
-
-        // 5. If we still don't have 4 options (e.g., all answers were identical)
-        //    fill in with any remaining random distractors that aren't already added.
-        if (options.size < 4) {
-            // We can re-use the distractorPool, but we need to shuffle it
-            // to get random options this time.
-            shuffleArray(distractorPool); 
-
-            for (const card of distractorPool) {
-                if (options.size < 4) {
-                    const distractorOption = app.currentDeck.settings.termFirst ? card.definition : card.term;
-                    // .add() automatically handles duplicates, so this is safe
-                    options.add(distractorOption);
-                } else {
-                    break;
-                }
-            }
-        }
-        
+        // Final shuffle of positions
         const shuffledOptions = Array.from(options);
         shuffleArray(shuffledOptions);
 
