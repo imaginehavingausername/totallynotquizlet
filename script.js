@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 termFirst: true
             }
         },
+        currentDeckHash: '', // NEW: To track which deck the session belongs to
         studyDeck: [], // A (potentially shuffled) copy of cards for studying
         learnSessionCards: [], // Cards for the current learn session
         typeSessionCards: [], // NEW: Cards for the current type session
@@ -32,7 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
         isCheckingMatch: false, // Prevents double-clicks
 
         progressData: new Map(), // Stores progress keyed by 'term|definition'
-        localStorageKey: 'flashcardAppProgress',
+        localStorageKey: 'flashcardAppProgress', // For SRS card scores
+        sessionStorageKey: 'flashcardAppSessionState', // NEW: For learn/type session
         themeKey: 'flashcardAppTheme',
         toastTimeout: null,
         correctAnswerTimeout: null, // NEW: For auto-advancing on correct
@@ -179,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadProgressFromLocalStorage();
         loadBestTimeFromLocalStorage(); // NEW
         loadDeckFromURL();
+        loadSessionsFromLocalStorage(); // NEW: Must be after loadDeckFromURL
         updateDocumentTitle(); // *** NEW *** Set tab title
         addEventListeners();
         
@@ -261,6 +264,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * NEW: Loads Learn/Type session progress from localStorage.
+     */
+    function loadSessionsFromLocalStorage() {
+        try {
+            const storedState = localStorage.getItem(app.sessionStorageKey);
+            if (!storedState) return;
+
+            const sessionState = JSON.parse(storedState);
+
+            // Check if the saved session is for the currently loaded deck
+            if (sessionState && sessionState.deckHash === app.currentDeckHash) {
+                // Rebuild learn session
+                if (sessionState.learnSessionCardIds) {
+                    app.learnSessionCards = sessionState.learnSessionCardIds
+                        .map(id => app.currentDeck.cards.find(card => card.id === id))
+                        .filter(Boolean); // Filter out any nulls
+                }
+                // Rebuild type session
+                if (sessionState.typeSessionCardIds) {
+                    app.typeSessionCards = sessionState.typeSessionCardIds
+                        .map(id => app.currentDeck.cards.find(card => card.id === id))
+                        .filter(Boolean); // Filter out any nulls
+                }
+            } else {
+                // Mismatch, clear the old session
+                localStorage.removeItem(app.sessionStorageKey);
+            }
+        } catch (error) {
+            console.error("Error loading session from localStorage:", error);
+            app.learnSessionCards = [];
+            app.typeSessionCards = [];
+        }
+    }
+
+    /**
      * NEW: Loads the best match time from localStorage.
      */
     function loadBestTimeFromLocalStorage() {
@@ -300,6 +338,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * NEW: Saves Learn/Type session progress to localStorage.
+     */
+    function saveSessionsToLocalStorage() {
+        try {
+            const sessionState = {
+                deckHash: app.currentDeckHash,
+                learnSessionCardIds: app.learnSessionCards.map(card => card.id),
+                typeSessionCardIds: app.typeSessionCards.map(card => card.id)
+            };
+            localStorage.setItem(app.sessionStorageKey, JSON.stringify(sessionState));
+        } catch (error) {
+            console.error("Error saving session to localStorage:", error);
+        }
+    }
+
+    /**
      * NEW: Saves the best match time to localStorage.
      */
     function saveBestTimeToLocalStorage() {
@@ -326,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- FIX FOR MOBILE SHARING ---
             // Mobile apps often replace '+' with ' ' in URLs. We must change them back.
             hash = hash.replace(/ /g, '+');
+            app.currentDeckHash = hash; // NEW: Store the hash
             // --- END FIX ---
 
             try {
@@ -349,6 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 rawDeck = getDefaultDeck();
                 window.location.hash = ''; // Clear invalid hash
             }
+        } else {
+            app.currentDeckHash = ''; // NEW: Store empty hash
         }
 
         // MODIFIED: Map cards from rawDeck.cards
@@ -496,29 +553,29 @@ document.addEventListener('DOMContentLoaded', () => {
             // Now that studyDeck is ready, start learn mode
             // This check is needed again in case the mode was set programmatically
             if (app.currentDeck.cards.length >= 4) {
-                 // NEW: Only start a new session if the previous one is finished.
+                 // MODIFIED: Check for saved session vs. new session
                  if (app.learnSessionCards.length === 0) {
-                    startLearnMode();
+                    startLearnMode(); // Starts a new session
                  } else {
                     // A session is in progress, just resume.
                     dom.learnModeQuiz.classList.remove('hidden'); // Ensure quiz is visible
                     dom.learnCompleteView.classList.add('hidden'); // Ensure complete is hidden
                     dom.learnProgressBarContainer.classList.remove('hidden'); // Ensure bar is visible
-                    updateProgressBar('learn'); // Update bar to show current progress
+                    renderLearnQuestion(); // Render the first card from the saved session
                  }
             }
         // NEW: Start type mode
         } else if (mode === 'type') {
             if (app.currentDeck.cards.length >= 1) {
-                // NEW: Only start a new session if the previous one is finished.
+                // MODIFIED: Check for saved session vs. new session
                 if (app.typeSessionCards.length === 0) {
-                    startTypeMode();
+                    startTypeMode(); // Starts a new session
                 } else {
                     // A session is in progress, just resume.
                     dom.typeModeQuiz.classList.remove('hidden'); // Ensure quiz is visible
                     dom.typeCompleteView.classList.add('hidden'); // Ensure complete is hidden
                     dom.typeProgressBarContainer.classList.remove('hidden'); // Ensure bar is visible
-                    updateProgressBar('type'); // Update bar to show current progress
+                    renderTypeQuestion(); // Render the first card from the saved session
                 }
             }
         // NEW: Start match mode
@@ -746,6 +803,8 @@ document.addEventListener('DOMContentLoaded', () => {
             app.learnSessionCards = []; 
             app.typeSessionCards = []; // Also reset type session
             app.matchSessionCards = [];
+            
+            saveSessionsToLocalStorage(); // NEW: Save the empty sessions
 
             // If in an affected mode, reload it to apply changes
             if (app.currentMode === 'flashcards' || app.currentMode === 'learn' || app.currentMode === 'type' || app.currentMode === 'match') {
@@ -999,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateProgressBar('learn'); // NEW
         renderLearnQuestion();
+        saveSessionsToLocalStorage(); // NEW: Save the new session
     }
 
 
@@ -1020,6 +1080,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.learnModeQuiz.classList.add('hidden');
             dom.learnCompleteView.classList.remove('hidden');
             dom.learnProgressBarContainer.classList.add('hidden'); // NEW: Hide on complete
+            saveSessionsToLocalStorage(); // NEW: Save empty session
             return;
         }
 
@@ -1033,6 +1094,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // This case should be handled by the check above, but good to have.
             dom.learnModeQuiz.classList.add('hidden');
             dom.learnCompleteView.classList.remove('hidden');
+            saveSessionsToLocalStorage(); // NEW: Save empty session
             return;
         }
 
@@ -1156,6 +1218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.learnContinueButton.classList.remove('hidden'); // NEW: Show continue button
 
         saveProgressToLocalStorage();
+        saveSessionsToLocalStorage(); // NEW: Save session progress
         // MODIFIED: Removed setTimeout to wait for user input
     }
 
@@ -1177,6 +1240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateProgressBar('type'); // NEW
         renderTypeQuestion();
+        saveSessionsToLocalStorage(); // NEW: Save the new session
     }
 
     /**
@@ -1199,6 +1263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.typeModeQuiz.classList.add('hidden');
             dom.typeCompleteView.classList.remove('hidden');
             dom.typeProgressBarContainer.classList.add('hidden'); // NEW: Hide on complete
+            saveSessionsToLocalStorage(); // NEW: Save empty session
             return;
         }
 
@@ -1303,6 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveProgressToLocalStorage();
+        saveSessionsToLocalStorage(); // NEW: Save session progress
         
         // MODIFIED: Show continue button instead of using timeout
         dom.typeContinueButton.classList.remove('hidden');
@@ -1320,6 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Mark the card as incorrect (resets score)
         updateCardProgress(app.lastTypeCard, false);
         saveProgressToLocalStorage();
+        saveSessionsToLocalStorage(); // NEW: Save session progress
 
         // 3. Clear the cache and hide the button
         app.lastTypeCard = null;
@@ -1344,6 +1411,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cardIndex > -1) {
             app.typeSessionCards.splice(cardIndex, 1);
         }
+        
+        saveSessionsToLocalStorage(); // NEW: Save session progress
 
         // 3. Clear cache and hide button
         app.lastTypeCard = null;
@@ -1947,8 +2016,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             const jsonString = JSON.stringify(baseDeck);
             const base64String = btoa(jsonString);
+            
+            // NEW: Update the stored hash as well
+            const newHash = `#${base64String}`;
+            app.currentDeckHash = newHash.substring(1);
+
             // Use history.replaceState to avoid adding to browser history
-            history.replaceState(null, '', `#${base64String}`);
+            history.replaceState(null, '', newHash);
+
         } catch (error) {
             console.error("Error updating hash:", error);
             showToast("Error saving settings.");
@@ -2019,3 +2094,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
