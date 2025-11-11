@@ -335,6 +335,7 @@
     <!-- NEW: Settings Modal -->
     <div id="settings-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <!-- ... existing modal content ... -->
+        <div class="modal-backdrop fixed inset-0"></div>
         <div id="settings-modal-content" class="relative w-full max-w-md p-6 md:p-8 rounded-2xl space-y-6">
             <button id="settings-modal-close" class="absolute top-4 right-5 text-3xl font-bold">&times;</button>
             <h2 class="text-2xl font-bold mb-4">Study Set Settings</h2>
@@ -353,14 +354,6 @@
                 <label class="create-label">START WITH</label>
                 <button id="setting-toggle-start-with" class="settings-toggle-button w-full">
                     Term
-                </button>
-            </div>
-
-            <!-- NEW: Difficulty Setting -->
-            <div>
-                <label class="create-label">DIFFICULTY</label>
-                <button id="setting-toggle-difficulty" class="settings-toggle-button w-full">
-                    Normal
                 </button>
             </div>
 
