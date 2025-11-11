@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cards: [],
             settings: {
                 shuffle: false,
-                termFirst: true
+                termFirst: true,
+                difficulty: 'normal' // NEW
             }
         },
         currentDeckHash: '', // NEW: To track which deck the session belongs to
@@ -153,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         settingDeckTitle: document.getElementById('setting-deck-title'),
         settingToggleShuffle: document.getElementById('setting-toggle-shuffle'),
         settingToggleStartWith: document.getElementById('setting-toggle-start-with'),
+        settingToggleDifficulty: document.getElementById('setting-toggle-difficulty'), // NEW
         copyDeckButton: document.getElementById('copy-deck-button') // NEW
     };
 
@@ -373,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // MODIFIED: rawDeck is now an object
         let rawDeck = getDefaultDeck();
         let hash = window.location.hash.substring(1); // <-- Get hash as 'let'
-        const defaultSettings = { shuffle: false, termFirst: true };
+        const defaultSettings = { shuffle: false, termFirst: true, difficulty: 'normal' }; // NEW
 
         if (hash) {
             
@@ -449,7 +451,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cards: [],
             settings: {
                 shuffle: false,
-                termFirst: true
+                termFirst: true,
+                difficulty: 'normal' // NEW
             }
         };
     }
@@ -666,6 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.settingDeckTitle.addEventListener('input', handleTitleSettingChange);
         dom.settingToggleShuffle.addEventListener('click', handleShuffleSettingChange);
         dom.settingToggleStartWith.addEventListener('click', handleStartWithSettingChange);
+        dom.settingToggleDifficulty.addEventListener('click', handleDifficultySettingChange); // NEW
         dom.copyDeckButton.addEventListener('click', copyDeckTerms); // NEW
     
         // NEW: Learn Complete Listeners
@@ -786,11 +790,13 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.settingDeckTitle.value = app.currentDeck.title;
         updateSettingsToggle(dom.settingToggleShuffle, app.currentDeck.settings.shuffle, "Shuffle");
         updateSettingsToggle(dom.settingToggleStartWith, app.currentDeck.settings.termFirst, "Term", "Definition");
+        updateSettingsToggle(dom.settingToggleDifficulty, app.currentDeck.settings.difficulty === 'normal', "Normal", "Easy"); // NEW
         
         // NEW: Store settings to check for changes
         app.settingsBeforeEdit = {
             shuffle: app.currentDeck.settings.shuffle,
-            termFirst: app.currentDeck.settings.termFirst
+            termFirst: app.currentDeck.settings.termFirst,
+            difficulty: app.currentDeck.settings.difficulty // NEW
         };
 
         dom.settingsModalOverlay.classList.add('visible');
@@ -802,7 +808,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if settings that affect study order have changed
         const settingsChanged = app.settingsBeforeEdit && 
             (app.settingsBeforeEdit.shuffle !== app.currentDeck.settings.shuffle || 
-             app.settingsBeforeEdit.termFirst !== app.currentDeck.settings.termFirst);
+             app.settingsBeforeEdit.termFirst !== app.currentDeck.settings.termFirst ||
+             app.settingsBeforeEdit.difficulty !== app.currentDeck.settings.difficulty); // NEW
 
         if (settingsChanged) {
             // Reset sessions
@@ -842,6 +849,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSettingsToggle(dom.settingToggleStartWith, app.currentDeck.settings.termFirst, "Term", "Definition");
         updateURLHash();
         app.currentCardIndex = 0; // ***** PROGRESS RESET FIX *****
+    }
+
+    // NEW
+    function handleDifficultySettingChange() {
+        app.currentDeck.settings.difficulty = app.currentDeck.settings.difficulty === 'normal' ? 'easy' : 'normal';
+        updateSettingsToggle(dom.settingToggleDifficulty, app.currentDeck.settings.difficulty === 'normal', "Normal", "Easy");
+        updateURLHash();
     }
 
     /** Helper to update a toggle button's appearance */
@@ -1147,53 +1161,25 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * *** MODIFIED: This function now selects the 3 MOST SIMILAR distractors
      * *** based on Levenshtein distance to make the quiz more challenging.
+     * *** MODIFIED: Now checks difficulty setting.
      */
     function generateQuizOptions(correctCard) {
         const termFirst = app.currentDeck.settings.termFirst;
         
         // 1. Determine the correct answer text
         const correctOption = termFirst ? correctCard.definition : correctCard.term;
-        const textToCompare = correctOption.toLowerCase(); 
 
         // 2. Create a pool of distractors, excluding the correct card
-        const distractorPool = app.studyDeck.filter(card => card.id !== correctCard.id);
-
-        // 3. Calculate Levenshtein distance for each distractor
-        const distractorsWithDistance = distractorPool.map(card => {
-            const distractorOption = termFirst ? card.definition : card.term;
-            const distance = levenshteinDistance(distractorOption.toLowerCase(), textToCompare);
-            
-            return {
-                optionText: distractorOption,
-                distance: distance
-            };
-        });
-
-        // 4. Sort distractors by distance (closest first)
-        distractorsWithDistance.sort((a, b) => a.distance - b.distance);
-
-        // 5. Build the final options list, prioritizing closest
+        let distractorPool = app.studyDeck.filter(card => card.id !== correctCard.id);
         const finalOptions = [correctOption];
         const addedOptions = new Set();
         addedOptions.add(correctOption);
 
-        // 6. Add the closest unique distractors
-        for (const distractor of distractorsWithDistance) {
-            if (finalOptions.length >= 4) {
-                break; // We have enough
-            }
-            if (!addedOptions.has(distractor.optionText)) {
-                finalOptions.push(distractor.optionText);
-                addedOptions.add(distractor.optionText);
-            }
-        }
-
-        // 7. If we still don't have 4 (e.g., small deck), fill with randoms
-        if (finalOptions.length < 4) {
-            const shuffledPool = [...distractorPool]; // Clone and shuffle
-            shuffleArray(shuffledPool);
-            
-            for (const card of shuffledPool) {
+        // 2. --- NEW: Difficulty Check ---
+        if (app.currentDeck.settings.difficulty === 'easy') {
+            // --- EASY MODE: Pick 3 random distractors ---
+            shuffleArray(distractorPool);
+            for (const card of distractorPool) {
                 if (finalOptions.length >= 4) {
                     break;
                 }
@@ -1201,6 +1187,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!addedOptions.has(randomOption)) {
                     finalOptions.push(randomOption);
                     addedOptions.add(randomOption);
+                }
+            }
+
+        } else {
+            // --- NORMAL MODE: Pick 3 closest distractors (Levenshtein) ---
+            const textToCompare = correctOption.toLowerCase(); 
+
+            // 3. Calculate Levenshtein distance for each distractor
+            const distractorsWithDistance = distractorPool.map(card => {
+                const distractorOption = termFirst ? card.definition : card.term;
+                const distance = levenshteinDistance(distractorOption.toLowerCase(), textToCompare);
+                
+                return {
+                    optionText: distractorOption,
+                    distance: distance
+                };
+            });
+
+            // 4. Sort distractors by distance (closest first)
+            distractorsWithDistance.sort((a, b) => a.distance - b.distance);
+
+            // 5. Build the final options list, prioritizing closest
+            // 6. Add the closest unique distractors
+            for (const distractor of distractorsWithDistance) {
+                if (finalOptions.length >= 4) {
+                    break; // We have enough
+                }
+                if (!addedOptions.has(distractor.optionText)) {
+                    finalOptions.push(distractor.optionText);
+                    addedOptions.add(distractor.optionText);
+                }
+            }
+
+            // 7. If we still don't have 4 (e.g., small deck), fill with randoms
+            if (finalOptions.length < 4) {
+                const shuffledPool = [...distractorPool]; // Clone and shuffle
+                shuffleArray(shuffledPool);
+                
+                for (const card of shuffledPool) {
+                    if (finalOptions.length >= 4) {
+                        break;
+                    }
+                    const randomOption = termFirst ? card.definition : card.term;
+                    if (!addedOptions.has(randomOption)) {
+                        finalOptions.push(randomOption);
+                        addedOptions.add(randomOption);
+                    }
                 }
             }
         }
@@ -1243,7 +1276,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // NEW: Start auto-advance timer
             app.correctAnswerTimeout = setTimeout(renderLearnQuestion, CORRECT_ANSWER_DELAY);
         } else {
-            app.learnSessionCards.push(app.learnSessionCards.shift()); // NEW: Move incorrect card to back
+            // --- MODIFIED: Difficulty Check ---
+            // 'Easy' mode: remove card. 'Normal' mode: move to back.
+            const incorrectCard = app.learnSessionCards.shift(); // Always remove from front
+            if (app.currentDeck.settings.difficulty !== 'easy') {
+                app.learnSessionCards.push(incorrectCard); // 'Normal': add to back
+            }
+            // --- End Modification ---
+            
             updateCardProgress(app.currentLearnCard, false); // MODIFIED
             // MODIFIED: Show the correct answer in the feedback
             dom.learnFeedbackMessage.textContent = "Incorrect. The correct answer is: " + correctAnswer;
@@ -1401,9 +1441,14 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.typeOverrideCorrectButton.classList.remove('hidden'); // NEW
             
             updateCardProgress(app.currentTypeCard, false);
-            // MODIFIED: Store card *before* moving it
+            
+            // --- MODIFIED: Difficulty Check ---
+            // 'Easy' mode: remove card. 'Normal' mode: move to back.
             app.lastTypeCard = app.typeSessionCards.shift(); // Remove and store
-            app.typeSessionCards.push(app.lastTypeCard); // Move to back
+            if (app.currentDeck.settings.difficulty !== 'easy') {
+                app.typeSessionCards.push(app.lastTypeCard); // 'Normal': add to back
+            }
+            // --- End Modification ---
 
             // NEW: No timer for incorrect answers
         }
@@ -1839,7 +1884,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cards: newCards,
             settings: {
                 shuffle: false,
-                termFirst: true
+                termFirst: true,
+                difficulty: 'normal' // NEW: Carry over default
             }
         };
 
@@ -1970,14 +2016,8 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {string} - The URL-safe Base64 string.
      */
     function base64UrlEncode(str) {
-        // 1. Convert string to UTF-8 bytes
-        const utf8Bytes = new TextEncoder().encode(str);
-        // 2. Convert bytes to a binary string (a string where each char code is 0-255)
-        const binaryString = String.fromCharCode.apply(null, utf8Bytes);
-        // 3. Encode binary string to Base64
-        const base64String = btoa(binaryString);
-        // 4. Make it URL-safe
-        return base64String
+        // First, encode to standard Base64
+        return btoa(str)
             .replace(/\+/g, '-') // Replace + with -
             .replace(/\//g, '_') // Replace / with _
             .replace(/=+$/, ''); // Remove trailing padding
@@ -1989,25 +2029,18 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {string} - The original, decoded string.
      */
     function base64UrlDecode(str) {
-        // 1. Add back URL-unsafe characters and padding
+        // Add back URL-unsafe characters
         str = str.replace(/-/g, '+') // Replace - with +
                  .replace(/_/g, '/'); // Replace _ with /
+        
+        // Add padding back if necessary
         const padding = str.length % 4;
         if (padding) {
             str += '===='.slice(padding);
         }
         
-        // 2. Decode from Base64 to binary string
-        const binaryString = atob(str);
-        
-        // 3. Convert binary string to byte array
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        // 4. Decode UTF-8 bytes back to string
-        return new TextDecoder().decode(bytes);
+        // Decode from standard Base64
+        return atob(str);
     }
 
     /**
