@@ -467,6 +467,12 @@ body.light-mode .create-toggle-button.active {
     box-shadow: var(--shadow-lg);
     border-radius: var(--border-radius-card); /* More rounded */
     touch-action: none; /* NEW: Prevent scrolling on swipe */
+
+    /* BUG FIX: Add a base translateZ(0) to promote the element to its own
+      compositing layer. This prevents the "dipping" bug during 3D rotation
+      by stabilizing its rendering in the 2D layout.
+    */
+    transform: translateZ(0);
 }
 
 /* NEW: This class disables the flip animation temporarily */
@@ -475,7 +481,11 @@ body.light-mode .create-toggle-button.active {
 }
 
 .flashcard.is-flipped {
-    transform: rotateY(180deg);
+    /*
+      BUG FIX: Combine the rotation with the base translateZ(0) to maintain
+      the rendering stabilization during the flipped state.
+    */
+    transform: rotateY(180deg) translateZ(0);
 }
 
 /* REMOVED: All slide animation classes */
