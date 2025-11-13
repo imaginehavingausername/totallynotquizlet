@@ -507,6 +507,30 @@ body.light-mode .create-toggle-button.active {
     transform: rotateY(180deg);
 }
 
+/* --- NEW: TTS Button --- */
+.tts-button {
+    position: absolute;
+    top: 1.5rem; /* 24px */
+    left: 1.5rem; /* 24px */
+    z-index: 10;
+    padding: 0.5rem; /* 8px */
+    border-radius: 9999px; /* fully-rounded */
+    background-color: rgba(0,0,0,0.1);
+    color: var(--color-text-secondary);
+    transition: all 0.2s ease;
+}
+.tts-button:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+}
+body.light-mode .tts-button:hover {
+    color: var(--color-primary);
+}
+.tts-button:active {
+    transform: scale(0.95);
+}
+
+
 /* Flashcard Navigation */
 #flashcard-nav {
     margin-top: 2rem;
