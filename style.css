@@ -119,22 +119,18 @@ body:not(.light-mode) #theme-icon-moon {
     display: none;
 }
 
-/* *** NEW: HEADER LOGO *** */
+/* *** MODIFIED: HEADER LOGO *** */
 #header-logo {
     left: 50%;
     transform: translateX(-50%);
     width: 40px; /* 2.5rem */
     height: 40px; /* 2.5rem */
-    border-radius: 10px; /* Slightly rounded */
-    border: 1px solid var(--color-border);
-    background-color: var(--color-card-bg); /* Give it a bg to pop */
-    padding: 4px; /* Small padding around the icon */
-    box-shadow: var(--shadow-sm);
+    /* Removed button styling (border, bg, padding, shadow) */
     transition: all 0.3s ease;
 }
 #header-logo:hover {
-    transform: translateX(-50%) scale(1.05); /* Slight grow on hover */
-    box-shadow: var(--shadow-md);
+    /* Removed hover effects */
+    transform: translateX(-50%); /* Maintain centering */
 }
 
 
@@ -968,4 +964,3 @@ body.light-mode .settings-toggle-button.active {
     border-radius: 6px;
     transition: width 0.3s ease;
 }
-
